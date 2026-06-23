@@ -1,22 +1,9 @@
 // Shared frontend types and constants describing the editor's interaction model.
 
-// EditorMode is the active behaviour of the bottom editor. When a node is selected
-// the user cycles through these with the Tab key; with no selection only a new
+// EditorMode is the active behaviour of the bottom editor. With a node selected
+// the compose popup adds a precursor or a decision; with no selection only a new
 // endpoint task can be created.
 export type EditorMode = 'edit' | 'precursor' | 'decision' | 'proximity'
-
-// editorModeOrder is the fixed cycle order used when pressing Tab on a selection.
-// Editing and proximity are keyboard actions, so the compose popup only adds a
-// precursor or a decision.
-export const editorModeOrder: EditorMode[] = ['precursor', 'decision']
-
-// editorModeLabels are the human-readable names shown on the editor tabs.
-export const editorModeLabels: Record<EditorMode, string> = {
-  edit: 'Edit',
-  precursor: 'New Precursor',
-  decision: 'New Decision',
-  proximity: 'Proximity'
-}
 
 // DecisionTypeOption pairs a decision type value with its display label and the
 // glyph shown on its selector button.

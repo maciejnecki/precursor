@@ -304,11 +304,6 @@ export function handleNodeClick(identifier: string, additive: boolean): void {
   }
 }
 
-// setMode switches the editor mode for the current selection.
-export function setMode(mode: EditorMode): void {
-  editorMode.set(mode)
-}
-
 // createEndpointTask logs a new central endpoint task with no selection required.
 export async function createEndpointTask(title: string, body: string, icon: string): Promise<boolean> {
   const result = await run(async () => {

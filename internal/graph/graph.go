@@ -123,15 +123,6 @@ func PrecursorOf(nodes []model.Node, taskID string) (model.Node, bool) {
 	return model.Node{}, false
 }
 
-// ParentOf returns the parent task of the given task, if one exists.
-func ParentOf(nodes []model.Node, taskID string) (model.Node, bool) {
-	node, found := nodeByID(nodes, taskID)
-	if !found || node.ParentID == nil {
-		return model.Node{}, false
-	}
-	return nodeByID(nodes, *node.ParentID)
-}
-
 // HasPrecursor reports whether the given task already has a precursor, which the
 // editor uses to keep the one-precursor-per-parent rule.
 func HasPrecursor(nodes []model.Node, taskID string) bool {

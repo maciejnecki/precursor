@@ -1,3 +1,10 @@
 build/bin
 node_modules
 frontend/dist
+
+# macOS finder metadata
+.DS_Store
+
+# compiled binary and icon backups
+/precursor
+*.bak
