@@ -64,11 +64,6 @@ func TestHappyPath(test *testing.T) {
 	}
 	precursor, _ := findTaskByTitle(view, "Build binary")
 
-	// A parent may only have one precursor.
-	if _, secondError := service.CreatePrecursor(endpoint.ID, "Another", "", ""); secondError == nil {
-		test.Fatalf("expected error adding a second precursor")
-	}
-
 	view, decisionError := service.CreateDecision(precursor.ID, string(model.DecisionDone), "Compiled", "", "")
 	if decisionError != nil {
 		test.Fatalf("CreateDecision: %v", decisionError)
@@ -89,6 +84,41 @@ func TestHappyPath(test *testing.T) {
 	promoted, found := nodeViewByID(view, precursor.ID)
 	if !found || promoted.ParentID != nil {
 		test.Fatalf("expected precursor promoted to endpoint, got %+v", promoted)
+	}
+}
+
+// TestCreatePrecursorInsertsBetween verifies that adding a precursor to a task that
+// already has one inserts the new task between them, keeping the chain linear:
+// First -> Inserted -> Endpoint.
+func TestCreatePrecursorInsertsBetween(test *testing.T) {
+	service := openService(test)
+	project, _ := service.CreateProject("Chain", "", "", "")
+	service.OpenProject(project.ID)
+
+	view, _ := service.CreateTask("Endpoint", "", "")
+	endpoint, _ := findTaskByTitle(view, "Endpoint")
+
+	view, firstError := service.CreatePrecursor(endpoint.ID, "First", "", "")
+	if firstError != nil {
+		test.Fatalf("CreatePrecursor first: %v", firstError)
+	}
+	first, _ := findTaskByTitle(view, "First")
+
+	view, secondError := service.CreatePrecursor(endpoint.ID, "Inserted", "", "")
+	if secondError != nil {
+		test.Fatalf("CreatePrecursor inserted: %v", secondError)
+	}
+	inserted, _ := findTaskByTitle(view, "Inserted")
+
+	// The new task becomes the endpoint's immediate precursor.
+	inserted, _ = nodeViewByID(view, inserted.ID)
+	if inserted.ParentID == nil || *inserted.ParentID != endpoint.ID {
+		test.Fatalf("expected inserted task to point at endpoint, got %+v", inserted)
+	}
+	// The former precursor is re-linked onto the new task.
+	first, _ = nodeViewByID(view, first.ID)
+	if first.ParentID == nil || *first.ParentID != inserted.ID {
+		test.Fatalf("expected first task re-linked onto inserted, got %+v", first)
 	}
 }
 

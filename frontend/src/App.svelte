@@ -10,7 +10,9 @@
   import ProjectModal from './lib/ProjectModal.svelte'
   import ConfirmDialog from './lib/ConfirmDialog.svelte'
   import {
+    closeEditModal,
     closeEditor,
+    closeNodeModal,
     closeProjectModal,
     confirmAndDeleteActiveProject,
     confirmAndDeleteSelected,
@@ -28,6 +30,7 @@
     openProjectEditModal,
     openProjectModal,
     projectModalOpen,
+    resolveConfirm,
     selectedNodeId,
     selectedNodeIds,
     showSettings,
@@ -82,16 +85,25 @@
     return element !== null && element.closest('.sidebar') !== null
   }
 
-  // onKeydown wires the canvas shortcuts. With nothing selected "t" creates a new
-  // task; with one task selected "t" adds a precursor, "e" edits it, "d" adds a
-  // decision, and cmd+i opens its detail modal; with several tasks selected "p"
-  // clusters them; cmd+n opens the new-project modal; Backspace deletes the canvas
-  // selection or, when focus is in the sidebar, the open project; Escape closes the
-  // popup and the project modal.
+  // onKeydown wires the canvas shortcuts. "shift+t" always creates a new endpoint
+  // task; with one task selected "t" adds a precursor (inserted ahead of any existing
+  // one), "e" edits it, "d" adds a decision, and cmd+i opens its detail modal; with
+  // several tasks selected "p" clusters them; cmd+n opens the new-project modal;
+  // Backspace deletes the canvas selection or, when focus is in the sidebar, the open
+  // project; Escape closes the popup and the project modal.
   function onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
+      // A pending confirmation sits on top of everything, so Escape cancels just it;
+      // otherwise Escape dismisses whichever popup or modal is open.
+      if (get(confirmRequest)) {
+        resolveConfirm(false)
+        return
+      }
       closeEditor()
       closeProjectModal()
+      closeNodeModal()
+      closeEditModal()
+      showSettings.set(false)
       return
     }
     const isCommand = event.metaKey || event.ctrlKey
@@ -140,10 +152,10 @@
     const node = singleSelectedNode()
     if (key === 't') {
       event.preventDefault()
-      if (node && node.kind === 'task') {
-        openComposeForSelection('precursor')
-      } else if (get(selectedNodeIds).length === 0) {
+      if (event.shiftKey) {
         openNewTaskAtCenter()
+      } else if (node && node.kind === 'task') {
+        openComposeForSelection('precursor')
       }
     } else if (key === 'e' && node) {
       event.preventDefault()
@@ -164,7 +176,7 @@
      from reaching the very top; the native traffic lights render above it. The app
      name sits centred in it. -->
 <div class="titlebar" style="--wails-draggable:drag">
-  <span class="app-name">Precursor</span>
+  <span class="app-name">{$view ? `Precursor - ${$view.project.name || 'Untitled'}` : 'Precursor'}</span>
 </div>
 
 <div class="layout">

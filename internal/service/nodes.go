@@ -74,18 +74,30 @@ func (service *Service) CreateTask(title, body, icon string) (ProjectView, error
 	})
 }
 
-// CreatePrecursor adds a precursor task to the given parent, enforcing the rule
-// that a parent may have at most one precursor.
+// CreatePrecursor adds a task as the immediate precursor of the given parent. When
+// the parent already has a precursor, the new task is inserted between them: the
+// existing precursor is re-linked onto the new task, keeping the chain linear and
+// the one-precursor-per-task rule intact.
 func (service *Service) CreatePrecursor(parentID, title, body, icon string) (ProjectView, error) {
 	return service.mutate(func(repository *storage.Repository) error {
 		nodes, nodesError := repository.Nodes()
 		if nodesError != nil {
 			return nodesError
 		}
-		if graph.HasPrecursor(nodes, parentID) {
-			return errors.New("the selected task already has a precursor")
+		// Build the new task up front so the existing precursor can point at its id.
+		newNode := newTaskNode(title, body, icon, &parentID)
+		// Re-link the parent's current precursor onto the new task before inserting it,
+		// so the parent never momentarily has two precursors (which the unique-parent
+		// index forbids).
+		existing, hasExisting := graph.PrecursorOf(nodes, parentID)
+		if hasExisting {
+			existing.ParentID = &newNode.ID
+			existing.UpdatedAt = now()
+			if updateError := repository.UpdateNode(existing); updateError != nil {
+				return updateError
+			}
 		}
-		return repository.InsertNode(newTaskNode(title, body, icon, &parentID))
+		return repository.InsertNode(newNode)
 	})
 }
 

@@ -123,13 +123,6 @@ func PrecursorOf(nodes []model.Node, taskID string) (model.Node, bool) {
 	return model.Node{}, false
 }
 
-// HasPrecursor reports whether the given task already has a precursor, which the
-// editor uses to keep the one-precursor-per-parent rule.
-func HasPrecursor(nodes []model.Node, taskID string) bool {
-	_, exists := PrecursorOf(nodes, taskID)
-	return exists
-}
-
 // Endpoints returns every endpoint task: a task with no parent, which sits at the
 // centre of the radial layout.
 func Endpoints(nodes []model.Node) []model.Node {

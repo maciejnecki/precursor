@@ -38,6 +38,15 @@
     }
   }
 
+  // handleKeydown lets cmd+s (or ctrl+s) save from anywhere in the modal, not just
+  // while the markdown editor holds focus, so editing a node stays keyboard-driven.
+  function handleKeydown(event: KeyboardEvent): void {
+    if ($editModalOpen && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault()
+      void save()
+    }
+  }
+
   // remove deletes the node after an in-app confirmation prompt.
   async function remove(): Promise<void> {
     if (node && (await requestConfirm('Delete this node? Its chain will be healed.'))) {
@@ -45,6 +54,8 @@
     }
   }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#if $editModalOpen && node}
   <div class="overlay" onclick={closeEditModal}></div>

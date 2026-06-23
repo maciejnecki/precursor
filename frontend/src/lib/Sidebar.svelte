@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    confirmAndDeleteProject,
     openProject,
     openProjectModal,
     projects,
@@ -23,6 +24,36 @@
 
   // activeId is the id of the currently open project, for highlighting.
   let activeId = $derived($view?.project.id ?? null)
+
+  // contextMenu holds the right-click menu's screen position and the project it acts
+  // on, or null when no menu is open.
+  let contextMenu = $state<{ x: number; y: number; id: string; name: string } | null>(null)
+
+  // The context menu's footprint, used to keep it on screen near the cursor.
+  const contextMenuWidth = 170
+  const contextMenuHeight = 44
+
+  // openContextMenu shows the project context menu at the cursor, clamped on screen.
+  function openContextMenu(event: MouseEvent, id: string, name: string): void {
+    event.preventDefault()
+    const x = Math.min(event.clientX, window.innerWidth - contextMenuWidth - 8)
+    const y = Math.min(event.clientY, window.innerHeight - contextMenuHeight - 8)
+    contextMenu = { x, y, id, name }
+  }
+
+  // closeContextMenu hides the project context menu.
+  function closeContextMenu(): void {
+    contextMenu = null
+  }
+
+  // deleteFromContextMenu confirms and deletes the project the menu was opened on.
+  async function deleteFromContextMenu(): Promise<void> {
+    if (contextMenu) {
+      const target = contextMenu
+      closeContextMenu()
+      await confirmAndDeleteProject(target.id, target.name)
+    }
+  }
 </script>
 
 <aside class="sidebar" class:collapsed={$sidebarCollapsed}>
@@ -42,6 +73,7 @@
           type="button"
           class="open"
           onclick={(event) => selectProject(project.id, event)}
+          oncontextmenu={(event) => openContextMenu(event, project.id, project.name || 'Untitled')}
           title={project.name || 'Untitled'}
         >
           <span class="icon">{project.icon || '📁'}</span>
@@ -64,6 +96,22 @@
     </footer>
   {/if}
 </aside>
+
+<!-- Right-click menu for a project. A full-screen backdrop dismisses it on any click
+     or further right-click outside the menu. -->
+{#if contextMenu}
+  <div
+    class="context-backdrop"
+    onclick={closeContextMenu}
+    oncontextmenu={(event) => {
+      event.preventDefault()
+      closeContextMenu()
+    }}
+  ></div>
+  <div class="context-menu" style={`left:${contextMenu.x}px; top:${contextMenu.y}px`}>
+    <button type="button" class="context-item danger" onclick={deleteFromContextMenu}>Delete project</button>
+  </div>
+{/if}
 
 <style>
   .sidebar {
@@ -159,5 +207,42 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
+  }
+
+  .context-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+  }
+
+  .context-menu {
+    position: fixed;
+    z-index: 121;
+    min-width: 150px;
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    background-color: var(--surface-raised);
+    backdrop-filter: var(--blur-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .context-item {
+    width: 100%;
+    text-align: left;
+    background-color: transparent;
+    border-color: transparent;
+  }
+
+  .context-item.danger {
+    color: #fca5a5;
+  }
+
+  .context-item.danger:hover {
+    background-color: #7f1d1d;
+    border-color: #ef4444;
+    color: var(--text);
   }
 </style>

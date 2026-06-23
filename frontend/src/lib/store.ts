@@ -130,6 +130,16 @@ function applyView(next: ProjectView): void {
   }
 }
 
+// selectCreatedNode makes the single node present in the new view but absent from
+// the before-set the active selection, so a freshly created task or precursor is
+// selected automatically and is ready for the next "t" press.
+function selectCreatedNode(next: ProjectView, before: Set<string>): void {
+  const created = next.nodes.find((node) => !before.has(node.id))
+  if (created) {
+    selectNode(created.id)
+  }
+}
+
 // createProject creates a project and immediately opens it. Project colour is no
 // longer surfaced in the UI, so an empty colour is passed for the stored field.
 export async function createProject(name: string, description: string, icon: string): Promise<void> {
@@ -207,18 +217,23 @@ export function closeProjectModal(): void {
   projectEditId.set(null)
 }
 
-// confirmAndDeleteActiveProject asks for confirmation, then deletes the currently
-// open project. Used by the Backspace shortcut when focus is in the sidebar.
+// confirmAndDeleteProject asks for confirmation, then deletes the given project. It
+// backs both the sidebar Backspace shortcut and the right-click delete option.
+export async function confirmAndDeleteProject(identifier: string, name: string): Promise<void> {
+  if (!(await requestConfirm(`Delete project "${name || 'Untitled'}"? This cannot be undone.`))) {
+    return
+  }
+  await deleteProject(identifier)
+}
+
+// confirmAndDeleteActiveProject deletes the currently open project, used by the
+// Backspace shortcut when focus is in the sidebar.
 export async function confirmAndDeleteActiveProject(): Promise<void> {
   const openView = get(view)
   if (!openView) {
     return
   }
-  const name = openView.project.name || 'Untitled'
-  if (!(await requestConfirm(`Delete project "${name}"? This cannot be undone.`))) {
-    return
-  }
-  await deleteProject(openView.project.id)
+  await confirmAndDeleteProject(openView.project.id, openView.project.name)
 }
 
 // selectNode replaces the selection with a single node (or clears it).
@@ -304,10 +319,14 @@ export function handleNodeClick(identifier: string, additive: boolean): void {
   }
 }
 
-// createEndpointTask logs a new central endpoint task with no selection required.
+// createEndpointTask logs a new central endpoint task with no selection required,
+// then selects it so it becomes the anchor for the next precursor.
 export async function createEndpointTask(title: string, body: string, icon: string): Promise<boolean> {
+  const before = new Set(get(view)?.nodes.map((node) => node.id) ?? [])
   const result = await run(async () => {
-    applyView(await api.createTask(title, body, icon))
+    const next = await api.createTask(title, body, icon)
+    applyView(next)
+    selectCreatedNode(next, before)
     return true
   })
   return result === true
@@ -332,7 +351,10 @@ export async function saveSelected(
       return false
     }
     if (mode === 'precursor') {
-      applyView(await api.createPrecursor(selection, title, body, icon))
+      const before = new Set(get(view)?.nodes.map((node) => node.id) ?? [])
+      const next = await api.createPrecursor(selection, title, body, icon)
+      applyView(next)
+      selectCreatedNode(next, before)
       return true
     }
     if (mode === 'decision') {

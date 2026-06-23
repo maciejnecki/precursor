@@ -4,13 +4,31 @@ import (
 	"embed"
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+// buildAppMenu assembles the native macOS menu bar. The standard App menu supplies
+// Quit (cmd+q); a File menu adds Close Window (cmd+w); the Edit menu restores the
+// system clipboard shortcuts inside the webview; the Window menu adds minimise/zoom.
+func buildAppMenu(app *App) *menu.Menu {
+	applicationMenu := menu.NewMenu()
+	applicationMenu.Append(menu.AppMenu())
+	fileMenu := applicationMenu.AddSubmenu("File")
+	fileMenu.AddText("Close Window", keys.CmdOrCtrl("w"), func(_ *menu.CallbackData) {
+		runtime.Quit(app.ctx)
+	})
+	applicationMenu.Append(menu.EditMenu())
+	applicationMenu.Append(menu.WindowMenu())
+	return applicationMenu
+}
 
 func main() {
 	// Create an instance of the app structure
@@ -27,6 +45,7 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 30, G: 41, B: 59, A: 1},
+		Menu:             buildAppMenu(app),
 		Mac: &mac.Options{
 			TitleBar: &mac.TitleBar{
 				TitlebarAppearsTransparent: true,
