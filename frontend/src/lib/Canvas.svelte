@@ -1,0 +1,198 @@
+<script lang="ts">
+  import { SvelteFlow, Background, MarkerType, type Node, type Edge } from '@xyflow/svelte'
+  import '@xyflow/svelte/dist/style.css'
+  import TaskNode from './nodes/TaskNode.svelte'
+  import DecisionNode from './nodes/DecisionNode.svelte'
+  import ChainBackground from './nodes/ChainBackground.svelte'
+  import ZoomController from './ZoomController.svelte'
+  import CanvasControls from './CanvasControls.svelte'
+  import FloatingEdge from './edges/FloatingEdge.svelte'
+  import { closeEditor, handleNodeClick, selectNode, selectedNodeIds, setEditorAnchor, settings, view } from './store'
+  import { computeChainAreas } from './chains'
+  import type { NodeView, Settings } from './api'
+
+  // nodeTypes maps our node kinds to their canvas components. The chain background
+  // is a non-interactive panel drawn behind a chain's task and decision nodes.
+  const nodeTypes = { task: TaskNode, decision: DecisionNode, chainBackground: ChainBackground }
+
+  // edgeTypes maps every link to the radial floating edge so connections attach to
+  // the node borders facing each other instead of fixed handles.
+  const edgeTypes = { floating: FloatingEdge }
+
+  // colourForNode resolves the colour a node should be drawn with from settings.
+  function colourForNode(node: NodeView, currentSettings: Settings | null): string {
+    const palette = currentSettings?.statusColours
+    if (node.kind === 'task') {
+      if (node.status === 'in_progress') return palette?.inProgress ?? '#f59e0b'
+      if (node.status === 'done') return palette?.done ?? '#22c55e'
+      if (node.status === 'redundant') return palette?.redundant ?? '#ef4444'
+      return palette?.scheduled ?? '#64748b'
+    }
+    if (node.decisionType === 'in_progress') return palette?.inProgress ?? '#f59e0b'
+    if (node.decisionType === 'done') return palette?.done ?? '#22c55e'
+    if (node.decisionType === 'redundant') return palette?.redundant ?? '#ef4444'
+    if (node.decisionType === 'scheduled') return palette?.scheduled ?? '#64748b'
+    return currentSettings?.decisionColour ?? '#94a3b8'
+  }
+
+  // chainNodes are the light background panels drawn behind each chain, carrying the
+  // chain's completion percentage. They sit below the task and decision nodes.
+  let chainNodes = $derived<Node[]>(
+    computeChainAreas($view?.nodes ?? []).map((area) => ({
+      id: area.id,
+      type: 'chainBackground',
+      position: { x: area.x, y: area.y },
+      draggable: false,
+      selectable: false,
+      zIndex: 0,
+      data: {
+        width: area.width,
+        height: area.height,
+        percent: area.percent,
+        doneColour: $settings?.statusColours?.done ?? '#22c55e'
+      }
+    }))
+  )
+
+  // flowNodes is the Svelte Flow node array derived from the open project's view. The
+  // chain backgrounds come first so the cards stack above them.
+  let flowNodes = $derived<Node[]>([
+    ...chainNodes,
+    ...($view?.nodes ?? []).map((node) => ({
+      id: node.id,
+      type: node.kind,
+      position: { x: node.x, y: node.y },
+      draggable: false,
+      selectable: false,
+      zIndex: 1,
+      data: {
+        id: node.id,
+        title: node.title,
+        body: node.bodyMarkdown,
+        icon: node.icon,
+        colour: colourForNode(node, $settings),
+        selected: $selectedNodeIds.includes(node.id),
+        decisionCount: node.decisionCount,
+        decisionsCollapsed: node.decisionsCollapsed
+      }
+    }))
+  ])
+
+  // colourForEdge resolves an edge's colour from the status of the task whose
+  // transition the edge belongs to, so a link matches its task's colour coding.
+  function colourForEdge(taskId: string, currentSettings: Settings | null): string {
+    const owner = $view?.nodes.find((node) => node.id === taskId)
+    return owner ? colourForNode(owner, currentSettings) : '#64748b'
+  }
+
+  // flowEdges is the Svelte Flow edge array, coloured by the owning task's status and
+  // curved more strongly for decision links.
+  let flowEdges = $derived<Edge[]>(
+    ($view?.edges ?? []).map((edge) => {
+      const colour = colourForEdge(edge.taskId, $settings)
+      const isDecision = edge.kind === 'decision'
+      const dashed = isDecision ? ' stroke-dasharray: 6 4;' : ''
+      return {
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        type: 'floating',
+        data: { curved: isDecision, curvature: 0.55 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: colour },
+        style: `stroke: ${colour}; stroke-width: 1.6;${dashed}`
+      }
+    })
+  )
+
+  // hasProject reports whether a project is open, controlling the empty-state hint.
+  let hasProject = $derived($view !== null)
+  let isEmpty = $derived(($view?.nodes.length ?? 0) === 0)
+
+  // recordPointer remembers where on screen the canvas was pressed so the compose
+  // popup can spawn there. It runs before the click handlers that open the popup.
+  function recordPointer(event: PointerEvent): void {
+    setEditorAnchor(event.clientX, event.clientY)
+  }
+</script>
+
+<div class="canvas" onpointerdown={recordPointer}>
+  {#if hasProject}
+    <SvelteFlow
+      nodes={flowNodes}
+      edges={flowEdges}
+      {nodeTypes}
+      {edgeTypes}
+      nodesDraggable={false}
+      zoomOnDoubleClick={false}
+      zoomOnScroll={false}
+      zoomOnPinch={false}
+      minZoom={0.2}
+      maxZoom={2.5}
+      proOptions={{ hideAttribution: true }}
+      fitView
+      onnodeclick={({ node, event }) => {
+        if (node.type === 'chainBackground') {
+          return
+        }
+        handleNodeClick(node.id, event.shiftKey)
+      }}
+      onpaneclick={() => {
+        selectNode(null)
+        closeEditor()
+      }}
+    >
+      <Background gap={36} size={1} />
+      <ZoomController />
+      <CanvasControls />
+    </SvelteFlow>
+
+    {#if isEmpty}
+      <div class="hint">Click anywhere on the canvas to create your first task.</div>
+    {/if}
+  {:else}
+    <div class="hint">Select or create a project from the sidebar to begin.</div>
+  {/if}
+</div>
+
+<style>
+  .canvas {
+    position: relative;
+    height: 100%;
+    /* Translucent black so the window vibrancy reads through as a dark canvas. */
+    background-color: rgba(0, 0, 0, 0.55);
+    /* Soften the top edge where the canvas meets the sidebar so the corner is not
+       cut off sharply; the radius matches the window's. The bottom-left stays square
+       so it sits flush in the window corner. */
+    border-top-left-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  /* Let the canvas tint show through Svelte Flow's own background layer. */
+  :global(.svelte-flow),
+  :global(.svelte-flow__background) {
+    background: transparent;
+  }
+
+  .hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-muted);
+    pointer-events: none;
+    text-align: center;
+    max-width: 70%;
+  }
+
+  :global(.svelte-flow__handle) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* The chain background is purely decorative: let clicks fall through to the canvas
+     so selecting and deselecting nodes still works over it. */
+  :global(.svelte-flow__node-chainBackground) {
+    pointer-events: none;
+    cursor: default;
+  }
+</style>

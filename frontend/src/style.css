@@ -1,0 +1,187 @@
+:root {
+  /* Slate theme, built around the #334155 of the app icon and chain backgrounds.
+     Surfaces darken from the raised slate; buttons are a lighter slate so they lift
+     off the panels they sit on. */
+  --surface: #1e293b;
+  /* Surfaces are translucent slate so the frosted-glass material runs through the
+     whole app; the elements that use them pair these with a backdrop blur. */
+  --surface-raised: rgba(51, 65, 85, 0.72);
+  --surface-input: rgba(30, 41, 59, 0.5);
+  --border: #475569;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  /* Translucent slate tint shared by the sidebar, titlebar, and floating popups so
+     they read as the same material over the window's vibrancy. */
+  --slate-veil: rgba(51, 65, 85, 0.6);
+  /* Buttons use a lighter slate than the surfaces; primary buttons lighter still.
+     All are translucent to match the frosted surfaces they sit on. */
+  --button: rgba(71, 85, 105, 0.5);
+  --button-hover: rgba(88, 106, 130, 0.62);
+  --button-primary: rgba(100, 116, 139, 0.58);
+  --button-primary-hover: rgba(118, 137, 161, 0.68);
+  /* Shared blur strengths for the frosted material. */
+  --blur-panel: blur(24px) saturate(1.3);
+  --blur-control: blur(12px) saturate(1.2);
+  /* Matches the macOS window corner radius so inner panels meet the window edge
+     and the sidebar without sharp corners. */
+  --radius: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100vh;
+  /* Fills the window exactly, so the fixed titlebar and full-height layout never
+     spill past the viewport and raise a window scrollbar. */
+  overflow: hidden;
+  /* Transparent so the translucent macOS window vibrancy shows behind the UI. */
+  background-color: transparent;
+  color: var(--text);
+  /* The chrome should feel like a native app, not a web page: no selecting or
+     dragging UI text. Editable and readable content re-enables selection below. */
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+/* Keep text selectable where it is meant to be read or edited. */
+input,
+textarea,
+.markdown,
+.cm-editor {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+#app {
+  height: 100vh;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background-color: var(--button);
+  backdrop-filter: var(--blur-control);
+  border: 1px solid var(--button);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--button-hover);
+  border-color: var(--button-hover);
+}
+
+button.primary {
+  background-color: var(--button-primary);
+  border-color: var(--button-primary);
+  color: var(--text);
+  font-weight: 600;
+}
+
+button.primary:hover {
+  background-color: var(--button-primary-hover);
+  border-color: var(--button-primary-hover);
+}
+
+input[type="text"],
+textarea {
+  font: inherit;
+  color: var(--text);
+  background-color: var(--surface-input);
+  backdrop-filter: var(--blur-control);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Shared styling for rendered markdown bodies in node previews and the detail modal. */
+.markdown {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0.6em 0 0.3em;
+}
+
+.markdown h1 {
+  font-size: 1.7em;
+}
+
+.markdown h2 {
+  font-size: 1.45em;
+}
+
+.markdown h3 {
+  font-size: 1.25em;
+}
+
+.markdown h4 {
+  font-size: 1.1em;
+}
+
+.markdown h5 {
+  font-size: 1em;
+}
+
+.markdown h6 {
+  font-size: 0.9em;
+}
+
+.markdown p {
+  margin: 0.4em 0;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.4em 0;
+  padding-left: 1.2em;
+}
+
+.markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background-color: var(--surface-input);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.markdown pre {
+  background-color: var(--surface-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  overflow-x: auto;
+}
+
+.markdown a {
+  color: var(--accent);
+}
