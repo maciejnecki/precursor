@@ -1,6 +1,6 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "precursor",
+  "name": "Precursor",
   "outputfilename": "Precursor",
   "info": {
     "productName": "Precursor"
