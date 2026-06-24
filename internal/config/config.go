@@ -21,6 +21,7 @@ const (
 	fallbackDone       = "#22c55e"
 	fallbackRedundant  = "#ef4444"
 	fallbackDecision   = "#94a3b8"
+	fallbackEndpoint   = "#fc4e26"
 )
 
 // StatusColours holds one colour per task status.
@@ -35,6 +36,9 @@ type StatusColours struct {
 type Settings struct {
 	StatusColours  StatusColours `toml:"statusColours" json:"statusColours"`
 	DecisionColour string        `toml:"decisionColour" json:"decisionColour"`
+	// EndpointColour outlines a pending chain-root task so an incomplete chain
+	// stands out until every node in it resolves.
+	EndpointColour string `toml:"endpointColour" json:"endpointColour"`
 }
 
 // DefaultSettings returns the shipped settings using the Classic palette.
@@ -47,6 +51,7 @@ func DefaultSettings() Settings {
 			Redundant:  fallbackRedundant,
 		},
 		DecisionColour: fallbackDecision,
+		EndpointColour: fallbackEndpoint,
 	}
 }
 
@@ -68,6 +73,9 @@ func withFallbacks(settings Settings) Settings {
 	}
 	if settings.DecisionColour == "" {
 		settings.DecisionColour = defaults.DecisionColour
+	}
+	if settings.EndpointColour == "" {
+		settings.EndpointColour = defaults.EndpointColour
 	}
 	return settings
 }

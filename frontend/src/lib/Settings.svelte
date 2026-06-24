@@ -43,6 +43,8 @@
     <label><span>In Progress</span><input type="color" bind:value={draft.statusColours.inProgress} /></label>
     <label><span>Done</span><input type="color" bind:value={draft.statusColours.done} /></label>
     <label><span>Redundant</span><input type="color" bind:value={draft.statusColours.redundant} /></label>
+    <p class="section">Endpoint colour</p>
+    <label><span>Pending endpoint</span><input type="color" bind:value={draft.endpointColour} /></label>
     <p class="section">Decision colour</p>
     <label><span>Plain decision</span><input type="color" bind:value={draft.decisionColour} /></label>
     <p class="section">Data</p>

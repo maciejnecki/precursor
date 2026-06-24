@@ -35,6 +35,21 @@
     return currentSettings?.decisionColour ?? '#94a3b8'
   }
 
+  // isPendingEndpoint reports whether a node is a chain-root task that has not yet
+  // resolved, so its outline should use the standout endpoint colour.
+  function isPendingEndpoint(node: NodeView): boolean {
+    return node.kind === 'task' && !node.parentId && node.status !== 'done' && node.status !== 'redundant'
+  }
+
+  // outlineForNode resolves a node card's border colour: a pending endpoint stands
+  // out in the endpoint colour, while every other node uses its status colour.
+  function outlineForNode(node: NodeView, currentSettings: Settings | null): string {
+    if (isPendingEndpoint(node)) {
+      return currentSettings?.endpointColour ?? '#fc4e26'
+    }
+    return colourForNode(node, currentSettings)
+  }
+
   // chainNodes are the light background panels drawn behind each chain, carrying the
   // chain's completion percentage. They sit below the task and decision nodes.
   let chainNodes = $derived<Node[]>(
@@ -70,7 +85,7 @@
         title: node.title,
         body: node.bodyMarkdown,
         icon: node.icon,
-        colour: colourForNode(node, $settings),
+        colour: outlineForNode(node, $settings),
         selected: $selectedNodeIds.includes(node.id),
         decisionCount: node.decisionCount,
         decisionsCollapsed: node.decisionsCollapsed

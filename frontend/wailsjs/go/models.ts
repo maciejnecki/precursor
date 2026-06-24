@@ -21,6 +21,7 @@ export namespace config {
 	export class Settings {
 	    statusColours: StatusColours;
 	    decisionColour: string;
+	    endpointColour: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -30,6 +31,7 @@ export namespace config {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.statusColours = this.convertValues(source["statusColours"], StatusColours);
 	        this.decisionColour = source["decisionColour"];
+	        this.endpointColour = source["endpointColour"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
