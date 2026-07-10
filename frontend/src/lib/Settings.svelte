@@ -14,10 +14,11 @@
   let draft = $state<Settings | null>(null)
 
   // versionLabel renders the build version for the footer. Version tags get a
-  // single "v" prefix; anything else (an uninjected "dev" build or a bare commit
-  // hash from an untagged release) shows as-is.
+  // single lowercase "v" prefix regardless of the tag's own casing; anything else
+  // (an uninjected "dev" build or a bare commit hash from an untagged release)
+  // shows as-is.
   const versionLabel = $derived.by(() => {
-    const stripped = $appVersion.replace(/^v/, '')
+    const stripped = $appVersion.replace(/^v/i, '')
     return /^\d/.test(stripped) ? `v${stripped}` : $appVersion
   })
 
