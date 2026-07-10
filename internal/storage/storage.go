@@ -89,11 +89,13 @@ var migrations = []string{
 	`ALTER TABLE nodes ADD COLUMN decisions_collapsed INTEGER NOT NULL DEFAULT 0`,
 }
 
-// openDatabase opens (and migrates) a SQLite database at the given path.
+// openDatabase opens (and migrates) a SQLite database at the given path, tuned
+// for a single desktop process: one pooled connection, write-ahead logging, and a
+// busy timeout so a briefly locked file retries instead of failing.
 func openDatabase(path string) (*sql.DB, error) {
-	database, openError := sql.Open("sqlite", path)
+	database, openError := openRawDatabase(path)
 	if openError != nil {
-		return nil, fmt.Errorf("open database: %w", openError)
+		return nil, openError
 	}
 	_, migrationError := database.Exec(schema)
 	if migrationError != nil {
@@ -103,6 +105,22 @@ func openDatabase(path string) (*sql.DB, error) {
 	if upgradeError := applyMigrations(database); upgradeError != nil {
 		database.Close()
 		return nil, upgradeError
+	}
+	return database, nil
+}
+
+// openRawDatabase opens a SQLite database with the shared connection tuning but
+// without touching the schema, for callers that only read from it.
+func openRawDatabase(path string) (*sql.DB, error) {
+	database, openError := sql.Open("sqlite", path)
+	if openError != nil {
+		return nil, fmt.Errorf("open database: %w", openError)
+	}
+	database.SetMaxOpenConns(1)
+	_, pragmaError := database.Exec(`PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;`)
+	if pragmaError != nil {
+		database.Close()
+		return nil, fmt.Errorf("apply connection pragmas: %w", pragmaError)
 	}
 	return database, nil
 }
@@ -131,7 +149,7 @@ func (store *Store) Open(identifier string) (*Repository, error) {
 	if openError != nil {
 		return nil, openError
 	}
-	return &Repository{database: database, identifier: identifier}, nil
+	return newRepository(database, identifier), nil
 }
 
 // CreateProject creates a new project database, writes its metadata, and returns
@@ -161,12 +179,16 @@ func (store *Store) CreateProject(name, description, colour, icon string) (model
 	return project, nil
 }
 
-// DeleteProject removes a project database file permanently.
+// DeleteProject removes a project database file permanently, along with the
+// write-ahead-log sidecar files SQLite keeps beside it.
 func (store *Store) DeleteProject(identifier string) error {
-	removalError := os.Remove(store.pathForID(identifier))
+	path := store.pathForID(identifier)
+	removalError := os.Remove(path)
 	if removalError != nil {
 		return fmt.Errorf("delete project %q: %w", identifier, removalError)
 	}
+	os.Remove(path + "-wal")
+	os.Remove(path + "-shm")
 	return nil
 }
 
@@ -197,12 +219,19 @@ func (store *Store) ListProjects() ([]model.Project, error) {
 	return projects, nil
 }
 
-// readProjectMeta opens a project database briefly to read its metadata row.
+// readProjectMeta opens a project database briefly to read its metadata row. It
+// skips the schema and migration work a full Open performs, since listing only
+// needs the single meta row.
 func (store *Store) readProjectMeta(identifier string) (model.Project, error) {
-	repository, openError := store.Open(identifier)
+	path := store.pathForID(identifier)
+	_, statError := os.Stat(path)
+	if statError != nil {
+		return model.Project{}, fmt.Errorf("project %q not found: %w", identifier, statError)
+	}
+	database, openError := openRawDatabase(path)
 	if openError != nil {
 		return model.Project{}, openError
 	}
-	defer repository.Close()
-	return repository.Meta()
+	defer database.Close()
+	return readMeta(database, identifier)
 }

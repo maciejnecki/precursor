@@ -3,13 +3,18 @@
   import { openNodeModal } from '../store'
 
   // A decision node renders as a small dark card matching the task nodes, with a
-  // status dot tinted by the decision colour. Double-clicking opens the detail modal.
-  let { data }: { data: { id: string; title: string; icon: string; colour: string; selected: boolean } } = $props()
+  // status dot tinted by the decision colour. Selection arrives as Svelte Flow's
+  // node-level flag so the data object stays stable. Double-clicking opens the
+  // detail modal.
+  let { data, selected = false }: {
+    data: { id: string; title: string; icon: string; colour: string }
+    selected?: boolean
+  } = $props()
 </script>
 
 <div
   class="decision-node"
-  class:selected={data.selected}
+  class:selected
   style={`--node-colour:${data.colour}`}
   ondblclick={() => openNodeModal(data.id)}
   role="button"

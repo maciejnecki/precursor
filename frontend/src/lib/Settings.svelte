@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    copyCompletedMarkdown,
+    appVersion,
     exportProjectFile,
     importProjectFile,
     saveSettings,
@@ -12,6 +12,14 @@
 
   // draft is a local editable copy of the settings so changes apply only on save.
   let draft = $state<Settings | null>(null)
+
+  // versionLabel renders the build version for the footer. Version tags get a
+  // single "v" prefix; anything else (an uninjected "dev" build or a bare commit
+  // hash from an untagged release) shows as-is.
+  const versionLabel = $derived.by(() => {
+    const stripped = $appVersion.replace(/^v/, '')
+    return /^\d/.test(stripped) ? `v${stripped}` : $appVersion
+  })
 
   // Seed the draft from the loaded settings whenever the panel opens.
   $effect(() => {
@@ -49,16 +57,16 @@
     <label><span>Plain decision</span><input type="color" bind:value={draft.decisionColour} /></label>
     <p class="section">Data</p>
     <div class="data-actions">
-      <button type="button" onclick={importProjectFile}>Import backup</button>
+      <button type="button" onclick={importProjectFile}>Import Backup</button>
       {#if $view}
-        <button type="button" onclick={exportProjectFile}>Backup JSON</button>
-        <button type="button" onclick={copyCompletedMarkdown}>Copy completed</button>
+        <button type="button" onclick={exportProjectFile}>Export Backup</button>
       {/if}
     </div>
     <div class="actions">
       <button type="button" onclick={close}>Cancel</button>
       <button type="button" class="primary" onclick={apply}>Save</button>
     </div>
+    <p class="footer">© {new Date().getFullYear()} Precursor | {versionLabel}</p>
   </div>
 {/if}
 
@@ -119,5 +127,12 @@
   /* Save sits at the right edge; Cancel stays on the left. */
   .actions .primary {
     margin-left: auto;
+  }
+
+  .footer {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
   }
 </style>

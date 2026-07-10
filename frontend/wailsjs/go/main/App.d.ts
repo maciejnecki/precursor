@@ -47,3 +47,5 @@ export function SetDecisionsCollapsed(arg1:string,arg2:boolean):Promise<service.
 export function UpdateNode(arg1:string,arg2:string,arg3:string,arg4:string):Promise<service.ProjectView>;
 
 export function UpdateProject(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<model.Project>;
+
+export function Version():Promise<string>;

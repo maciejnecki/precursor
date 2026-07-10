@@ -29,7 +29,19 @@
     value = ''
     open = false
   }
+
+  // onEscapeCapture closes an open popover on Escape during the capture phase and
+  // stops the event, so the global Escape handler does not also close the
+  // surrounding modal.
+  function onEscapeCapture(event: KeyboardEvent): void {
+    if (open && event.key === 'Escape') {
+      event.stopPropagation()
+      close()
+    }
+  }
 </script>
+
+<svelte:window onkeydowncapture={onEscapeCapture} />
 
 <div class="emoji-button">
   <button type="button" onclick={toggle} title="Choose an icon">

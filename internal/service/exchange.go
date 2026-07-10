@@ -3,6 +3,7 @@ package service
 import (
 	"precursor/internal/export"
 	"precursor/internal/model"
+	"precursor/internal/storage"
 )
 
 // CompletedMarkdown returns a Markdown table of the project's completed tasks and
@@ -74,15 +75,23 @@ func (service *Service) ImportBackup(data []byte) (model.Project, error) {
 	}
 	defer repository.Close()
 
-	for _, node := range backup.Graph.Nodes {
-		if insertError := repository.InsertNode(node); insertError != nil {
-			return model.Project{}, insertError
+	// Insert every node and bond in one transaction so a malformed backup cannot
+	// leave a partially populated project behind.
+	importError := repository.WithinTransaction(func(transactional *storage.Repository) error {
+		for _, node := range backup.Graph.Nodes {
+			if insertError := transactional.InsertNode(node); insertError != nil {
+				return insertError
+			}
 		}
-	}
-	for _, bond := range backup.Graph.ProximityBonds {
-		if insertError := repository.InsertProximityBond(bond); insertError != nil {
-			return model.Project{}, insertError
+		for _, bond := range backup.Graph.ProximityBonds {
+			if insertError := transactional.InsertProximityBond(bond); insertError != nil {
+				return insertError
+			}
 		}
+		return nil
+	})
+	if importError != nil {
+		return model.Project{}, importError
 	}
 	return project, nil
 }

@@ -69,9 +69,10 @@
     }))
   )
 
-  // flowNodes is the Svelte Flow node array derived from the open project's view. The
-  // chain backgrounds come first so the cards stack above them.
-  let flowNodes = $derived<Node[]>([
+  // baseFlowNodes is the Svelte Flow node array derived from the open project's view.
+  // The chain backgrounds come first so the cards stack above them. It deliberately
+  // does not depend on the selection, so selecting a node reuses these data objects.
+  let baseFlowNodes = $derived<Node[]>([
     ...chainNodes,
     ...($view?.nodes ?? []).map((node) => ({
       id: node.id,
@@ -86,17 +87,29 @@
         body: node.bodyMarkdown,
         icon: node.icon,
         colour: outlineForNode(node, $settings),
-        selected: $selectedNodeIds.includes(node.id),
         decisionCount: node.decisionCount,
         decisionsCollapsed: node.decisionsCollapsed
       }
     }))
   ])
 
+  // flowNodes stamps the current selection onto the base nodes at the node level.
+  // Only the thin wrapper objects are recreated on a selection change; each card's
+  // data keeps its identity, so the node components do not re-render their content.
+  let flowNodes = $derived<Node[]>(
+    baseFlowNodes.map((node) =>
+      node.type === 'chainBackground' ? node : { ...node, selected: $selectedNodeIds.includes(node.id) }
+    )
+  )
+
+  // nodesById indexes the view's nodes for constant-time lookups when colouring the
+  // edges, instead of scanning the node list once per edge.
+  let nodesById = $derived(new Map(($view?.nodes ?? []).map((node) => [node.id, node])))
+
   // colourForEdge resolves an edge's colour from the status of the task whose
   // transition the edge belongs to, so a link matches its task's colour coding.
   function colourForEdge(taskId: string, currentSettings: Settings | null): string {
-    const owner = $view?.nodes.find((node) => node.id === taskId)
+    const owner = nodesById.get(taskId)
     return owner ? colourForNode(owner, currentSettings) : '#64748b'
   }
 

@@ -105,10 +105,22 @@ backend on change. A browser devtools endpoint is also served at
 
 ## Building (production)
 
+Releases are cut with the Makefile so the git version is baked into the binary and
+shown in the settings footer:
+
+```bash
+make build
+```
+
+This runs `wails build -ldflags "-X main.version=$(git describe --tags --always)"`,
+so the footer reads the nearest git tag (for example `v1.0.0`), falling back to the
+short commit hash when no tag exists. Builds without the flag — including
+`wails dev` / `make dev` — show `dev` instead.
+
 ### macOS
 
 ```bash
-wails build
+make build
 ```
 
 Produces `build/bin/precursor.app`. To build a universal (Intel + Apple Silicon)

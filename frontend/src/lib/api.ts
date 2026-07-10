@@ -7,7 +7,6 @@ export type Project = model.Project
 export type ProjectView = service.ProjectView
 export type NodeView = service.NodeView
 export type Settings = config.Settings
-export type StatusColours = config.StatusColours
 
 export const api = {
   listProjects: bindings.ListProjects,
@@ -15,7 +14,6 @@ export const api = {
   updateProject: bindings.UpdateProject,
   deleteProject: bindings.DeleteProject,
   openProject: bindings.OpenProject,
-  currentView: bindings.CurrentView,
   createTask: bindings.CreateTask,
   createPrecursor: bindings.CreatePrecursor,
   createDecision: bindings.CreateDecision,
@@ -23,13 +21,10 @@ export const api = {
   updateNode: bindings.UpdateNode,
   setDecisionsCollapsed: bindings.SetDecisionsCollapsed,
   deleteNode: bindings.DeleteNode,
-  createProximity: bindings.CreateProximity,
   createProximityGroup: bindings.CreateProximityGroup,
-  deleteProximity: bindings.DeleteProximity,
   getSettings: bindings.GetSettings,
   saveSettings: bindings.SaveSettings,
-  getCompletedMarkdown: bindings.GetCompletedMarkdown,
-  saveCompletedMarkdown: bindings.SaveCompletedMarkdown,
   exportProject: bindings.ExportProject,
-  importProject: bindings.ImportProject
+  importProject: bindings.ImportProject,
+  version: bindings.Version
 }

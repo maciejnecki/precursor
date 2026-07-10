@@ -25,6 +25,12 @@ const columnSpacing = 340.0
 // overlap, so adding a decision re-opens the spacing.
 const minSegmentGap = 96.0
 
+// taskBodyExtraHeight approximates the extra height a task card gains from its
+// clamped description preview. Positions anchor a node's top-left corner, so a
+// segment's decisions are pushed down by this much when the task has a body,
+// keeping the visual gap below the card the same as for a description-less task.
+const taskBodyExtraHeight = 64.0
+
 // Config holds the tunable geometry of the layout. RowStep is the base vertical
 // distance between stacked tasks.
 type Config struct {
@@ -109,18 +115,30 @@ func placeColumn(result *Result, nodes []model.Node, endpoint model.Node, column
 		if taskNode.DecisionsCollapsed {
 			decisions = nil
 		}
-		taskY := lowerY - segmentLength(len(decisions), rowStep)
+		extraHeight := taskExtraHeight(taskNode, len(decisions))
+		taskY := lowerY - segmentLength(len(decisions), rowStep, extraHeight)
 		appendPoint(result, taskNode.ID, columnX, taskY)
-		placeDecisions(result, taskNode, decisions, columnX, taskY)
+		placeDecisions(result, taskNode, decisions, columnX, taskY+extraHeight)
 		lowerY = taskY
 	}
 }
 
+// taskExtraHeight estimates how much taller a task card renders than a bare header
+// card. It only matters for spacing the decisions hanging off the task, so a
+// decision-less segment reports zero and keeps the plain-link geometry.
+func taskExtraHeight(taskNode model.Node, decisionCount int) float64 {
+	if decisionCount == 0 || taskNode.BodyMarkdown == "" {
+		return 0
+	}
+	return taskBodyExtraHeight
+}
+
 // segmentLength returns the vertical length of the segment leading to a task. A
-// segment keeps the base row step unless its decisions need more room to sit a
-// minimum gap apart, in which case it grows just enough to fit them.
-func segmentLength(decisionCount int, baseStep float64) float64 {
-	required := float64(decisionCount+1) * minSegmentGap
+// segment keeps the base row step unless its decisions, pushed down by the task
+// card's extra height, need more room to sit a minimum gap apart, in which case
+// it grows just enough to fit them.
+func segmentLength(decisionCount int, baseStep, extraHeight float64) float64 {
+	required := float64(decisionCount+1)*minSegmentGap + extraHeight
 	if required > baseStep {
 		return required
 	}
@@ -128,8 +146,9 @@ func segmentLength(decisionCount int, baseStep float64) float64 {
 }
 
 // placeDecisions positions the decisions documenting a task down the segment from
-// the task toward its parent and wires the edges in flow direction. Every gap is
-// the same minimum step, so the task-to-first-decision spacing matches the spacing
+// the task toward its parent and wires the edges in flow direction. upperY is the
+// task's position shifted by its extra card height, so every visual gap is the
+// same minimum step: the task-to-first-decision spacing matches the spacing
 // between decisions and between the last decision and the parent.
 func placeDecisions(result *Result, taskNode model.Node, decisions []model.Node, columnX, upperY float64) {
 	if len(decisions) == 0 {

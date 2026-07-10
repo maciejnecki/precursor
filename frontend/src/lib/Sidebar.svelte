@@ -54,7 +54,18 @@
       await confirmAndDeleteProject(target.id, target.name)
     }
   }
+
+  // onEscapeCapture closes an open context menu on Escape during the capture phase
+  // and stops the event, so the global Escape handler does not also act.
+  function onEscapeCapture(event: KeyboardEvent): void {
+    if (contextMenu && event.key === 'Escape') {
+      event.stopPropagation()
+      closeContextMenu()
+    }
+  }
 </script>
+
+<svelte:window onkeydowncapture={onEscapeCapture} />
 
 <aside class="sidebar" class:collapsed={$sidebarCollapsed}>
   <header>

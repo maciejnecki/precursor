@@ -18,12 +18,20 @@ import (
 type App struct {
 	ctx       context.Context
 	service   *service.Service
+	version   string
 	initError error
 }
 
-// NewApp creates a new App with no state; initialisation happens at startup.
-func NewApp() *App {
-	return &App{}
+// NewApp creates a new App carrying the build version; the rest of the state is
+// initialised at startup.
+func NewApp(version string) *App {
+	return &App{version: version}
+}
+
+// Version returns the build version injected at compile time, or "dev" when the
+// app runs without an injected version (wails dev and plain go builds).
+func (app *App) Version() string {
+	return app.version
 }
 
 // startup stores the runtime context and initialises the service against the

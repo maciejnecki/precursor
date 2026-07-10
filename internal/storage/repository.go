@@ -8,10 +8,46 @@ import (
 	"precursor/internal/model"
 )
 
-// Repository exposes CRUD operations over a single open project database.
+// executor is the query surface shared by *sql.DB and *sql.Tx, letting every
+// repository method run identically inside and outside a transaction.
+type executor interface {
+	Exec(query string, arguments ...any) (sql.Result, error)
+	Query(query string, arguments ...any) (*sql.Rows, error)
+	QueryRow(query string, arguments ...any) *sql.Row
+}
+
+// Repository exposes CRUD operations over a single open project database. Its
+// methods run against the executor, which is the database itself or, inside
+// WithinTransaction, a single transaction.
 type Repository struct {
 	database   *sql.DB
+	executor   executor
 	identifier string
+}
+
+// newRepository binds a Repository to an open database, keeping the invariant
+// that the executor starts as the database itself in one place.
+func newRepository(database *sql.DB, identifier string) *Repository {
+	return &Repository{database: database, executor: database, identifier: identifier}
+}
+
+// WithinTransaction runs the operation against a repository bound to a single
+// transaction, committing on success and rolling back on error, so multi-statement
+// mutations are atomic.
+func (repository *Repository) WithinTransaction(operation func(transactional *Repository) error) error {
+	transaction, beginError := repository.database.Begin()
+	if beginError != nil {
+		return fmt.Errorf("begin transaction: %w", beginError)
+	}
+	transactional := &Repository{database: repository.database, executor: transaction, identifier: repository.identifier}
+	if operationError := operation(transactional); operationError != nil {
+		transaction.Rollback()
+		return operationError
+	}
+	if commitError := transaction.Commit(); commitError != nil {
+		return fmt.Errorf("commit transaction: %w", commitError)
+	}
+	return nil
 }
 
 // Close releases the underlying database connection.
@@ -65,7 +101,7 @@ func boolToInt(value bool) int {
 }
 
 // writeMeta inserts or replaces the single metadata row of a project database.
-func writeMeta(database *sql.DB, project model.Project) error {
+func writeMeta(database executor, project model.Project) error {
 	_, executionError := database.Exec(
 		`INSERT INTO meta (id, name, description, colour, icon, created_at, updated_at)
 		 VALUES (1, ?, ?, ?, ?, ?, ?)
@@ -90,10 +126,17 @@ func writeMeta(database *sql.DB, project model.Project) error {
 
 // Meta reads the project's metadata row.
 func (repository *Repository) Meta() (model.Project, error) {
-	row := repository.database.QueryRow(
+	return readMeta(repository.executor, repository.identifier)
+}
+
+// readMeta reads the single metadata row of a project database from any query
+// surface, so both an open Repository and the lightweight project listing share
+// one implementation.
+func readMeta(database executor, identifier string) (model.Project, error) {
+	row := database.QueryRow(
 		`SELECT name, description, colour, icon, created_at, updated_at FROM meta WHERE id = 1`,
 	)
-	project := model.Project{ID: repository.identifier}
+	project := model.Project{ID: identifier}
 	var createdAt, updatedAt string
 	scanError := row.Scan(
 		&project.Name,
@@ -113,7 +156,7 @@ func (repository *Repository) Meta() (model.Project, error) {
 
 // UpdateMeta updates the editable metadata fields of the project.
 func (repository *Repository) UpdateMeta(name, description, colour, icon string) error {
-	_, executionError := repository.database.Exec(
+	_, executionError := repository.executor.Exec(
 		`UPDATE meta SET name = ?, description = ?, colour = ?, icon = ?, updated_at = ? WHERE id = 1`,
 		name,
 		description,
@@ -165,7 +208,7 @@ const nodeColumns = `id, kind, title, body_markdown, icon, parent_id, child_id, 
 
 // Nodes returns every node in the project.
 func (repository *Repository) Nodes() ([]model.Node, error) {
-	rows, queryError := repository.database.Query(`SELECT ` + nodeColumns + ` FROM nodes`)
+	rows, queryError := repository.executor.Query(`SELECT ` + nodeColumns + ` FROM nodes`)
 	if queryError != nil {
 		return nil, fmt.Errorf("query nodes: %w", queryError)
 	}
@@ -184,7 +227,7 @@ func (repository *Repository) Nodes() ([]model.Node, error) {
 
 // Node returns a single node by identifier.
 func (repository *Repository) Node(identifier string) (model.Node, error) {
-	row := repository.database.QueryRow(`SELECT `+nodeColumns+` FROM nodes WHERE id = ?`, identifier)
+	row := repository.executor.QueryRow(`SELECT `+nodeColumns+` FROM nodes WHERE id = ?`, identifier)
 	node, scanError := scanNode(row)
 	if scanError != nil {
 		return model.Node{}, fmt.Errorf("read node %q: %w", identifier, scanError)
@@ -194,7 +237,7 @@ func (repository *Repository) Node(identifier string) (model.Node, error) {
 
 // InsertNode stores a new node.
 func (repository *Repository) InsertNode(node model.Node) error {
-	_, executionError := repository.database.Exec(
+	_, executionError := repository.executor.Exec(
 		`INSERT INTO nodes (`+nodeColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		node.ID,
 		node.Kind,
@@ -217,7 +260,7 @@ func (repository *Repository) InsertNode(node model.Node) error {
 
 // UpdateNode overwrites an existing node identified by its ID.
 func (repository *Repository) UpdateNode(node model.Node) error {
-	_, executionError := repository.database.Exec(
+	_, executionError := repository.executor.Exec(
 		`UPDATE nodes SET kind = ?, title = ?, body_markdown = ?, icon = ?, parent_id = ?,
 		 child_id = ?, decision_type = ?, order_index = ?, decisions_collapsed = ?, updated_at = ? WHERE id = ?`,
 		node.Kind,
@@ -240,7 +283,7 @@ func (repository *Repository) UpdateNode(node model.Node) error {
 
 // DeleteNode removes a single node by identifier.
 func (repository *Repository) DeleteNode(identifier string) error {
-	_, executionError := repository.database.Exec(`DELETE FROM nodes WHERE id = ?`, identifier)
+	_, executionError := repository.executor.Exec(`DELETE FROM nodes WHERE id = ?`, identifier)
 	if executionError != nil {
 		return fmt.Errorf("delete node %q: %w", identifier, executionError)
 	}
@@ -249,7 +292,7 @@ func (repository *Repository) DeleteNode(identifier string) error {
 
 // ProximityBonds returns every proximity bond in the project.
 func (repository *Repository) ProximityBonds() ([]model.ProximityBond, error) {
-	rows, queryError := repository.database.Query(
+	rows, queryError := repository.executor.Query(
 		`SELECT id, endpoint_a_id, endpoint_b_id, created_at FROM proximity_bonds`,
 	)
 	if queryError != nil {
@@ -273,7 +316,7 @@ func (repository *Repository) ProximityBonds() ([]model.ProximityBond, error) {
 
 // InsertProximityBond stores a new proximity bond.
 func (repository *Repository) InsertProximityBond(bond model.ProximityBond) error {
-	_, executionError := repository.database.Exec(
+	_, executionError := repository.executor.Exec(
 		`INSERT INTO proximity_bonds (id, endpoint_a_id, endpoint_b_id, created_at) VALUES (?, ?, ?, ?)`,
 		bond.ID,
 		bond.EndpointAID,
@@ -288,7 +331,7 @@ func (repository *Repository) InsertProximityBond(bond model.ProximityBond) erro
 
 // UpdateProximityBond overwrites the endpoints of an existing bond.
 func (repository *Repository) UpdateProximityBond(bond model.ProximityBond) error {
-	_, executionError := repository.database.Exec(
+	_, executionError := repository.executor.Exec(
 		`UPDATE proximity_bonds SET endpoint_a_id = ?, endpoint_b_id = ? WHERE id = ?`,
 		bond.EndpointAID,
 		bond.EndpointBID,
@@ -302,7 +345,7 @@ func (repository *Repository) UpdateProximityBond(bond model.ProximityBond) erro
 
 // DeleteProximityBond removes a proximity bond by identifier.
 func (repository *Repository) DeleteProximityBond(identifier string) error {
-	_, executionError := repository.database.Exec(`DELETE FROM proximity_bonds WHERE id = ?`, identifier)
+	_, executionError := repository.executor.Exec(`DELETE FROM proximity_bonds WHERE id = ?`, identifier)
 	if executionError != nil {
 		return fmt.Errorf("delete proximity bond %q: %w", identifier, executionError)
 	}

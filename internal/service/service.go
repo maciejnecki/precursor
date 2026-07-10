@@ -6,6 +6,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 	"sync"
 
@@ -40,11 +41,15 @@ func New(baseDirectory string) (*Service, error) {
 
 // ListProjects returns the metadata of every stored project.
 func (service *Service) ListProjects() ([]model.Project, error) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
 	return service.store.ListProjects()
 }
 
 // CreateProject creates a new empty project and returns its metadata.
 func (service *Service) CreateProject(name, description, colour, icon string) (model.Project, error) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
 	return service.store.CreateProject(name, description, colour, icon)
 }
 
@@ -71,8 +76,11 @@ func (service *Service) DeleteProject(identifier string) error {
 	defer service.mutex.Unlock()
 
 	if service.active != nil && service.active.ID() == identifier {
-		service.active.Close()
+		activeRepository := service.active
 		service.active = nil
+		if closeError := activeRepository.Close(); closeError != nil {
+			return fmt.Errorf("close project before delete: %w", closeError)
+		}
 	}
 	return service.store.DeleteProject(identifier)
 }
@@ -83,8 +91,11 @@ func (service *Service) OpenProject(identifier string) (ProjectView, error) {
 	defer service.mutex.Unlock()
 
 	if service.active != nil {
-		service.active.Close()
+		activeRepository := service.active
 		service.active = nil
+		if closeError := activeRepository.Close(); closeError != nil {
+			return ProjectView{}, fmt.Errorf("close previous project: %w", closeError)
+		}
 	}
 	repository, openError := service.store.Open(identifier)
 	if openError != nil {
@@ -103,11 +114,15 @@ func (service *Service) CurrentView() (ProjectView, error) {
 
 // Settings returns the current user settings.
 func (service *Service) Settings() (config.Settings, error) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
 	return service.settings.Load()
 }
 
 // SaveSettings persists updated user settings.
 func (service *Service) SaveSettings(settings config.Settings) error {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
 	return service.settings.Save(settings)
 }
 
@@ -137,7 +152,8 @@ func (service *Service) repositoryFor(identifier string) (*storage.Repository, e
 }
 
 // releaseIfNotActive closes a repository that was opened temporarily, leaving the
-// active repository untouched.
+// active repository untouched. The close error is deliberately ignored: the
+// repository was only read from and its result has already been returned.
 func (service *Service) releaseIfNotActive(repository *storage.Repository) {
 	if repository != service.active {
 		repository.Close()

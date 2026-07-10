@@ -18,9 +18,9 @@
     confirmAndDeleteSelected,
     confirmRequest,
     createProximityGroup,
+    dismissToast,
     editModalOpen,
     editorOpen,
-    errorMessage,
     loadInitial,
     modalNodeId,
     openComposeForSelection,
@@ -34,6 +34,7 @@
     selectedNodeId,
     selectedNodeIds,
     showSettings,
+    toast,
     view
   } from './lib/store'
   import type { NodeView } from './lib/api'
@@ -195,8 +196,8 @@
 <ProjectModal />
 <ConfirmDialog />
 
-{#if $errorMessage}
-  <div class="toast" onclick={() => errorMessage.set('')}>{$errorMessage}</div>
+{#if $toast}
+  <div class="toast" class:success={$toast.kind === 'success'} onclick={dismissToast}>{$toast.text}</div>
 {/if}
 
 <style>
@@ -254,5 +255,11 @@
     border: 1px solid #ef4444;
     border-radius: 8px;
     cursor: pointer;
+  }
+
+  /* Success confirmations reuse the toast shape in the done colour family. */
+  .toast.success {
+    background-color: #14532d;
+    border-color: #22c55e;
   }
 </style>

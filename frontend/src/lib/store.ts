@@ -62,8 +62,38 @@ export const editNodeId = writable<string | null>(null)
 // editModalOpen controls the editor modal.
 export const editModalOpen = writable<boolean>(false)
 
-// errorMessage surfaces the most recent operation failure to the user.
-export const errorMessage = writable<string>('')
+// Toast is a transient message shown at the bottom of the window: an operation
+// failure that stays until dismissed, or a brief success confirmation.
+export type Toast = { kind: 'error' | 'success'; text: string }
+
+// toast holds the visible transient message, or null when none is shown.
+export const toast = writable<Toast | null>(null)
+
+// successTimer auto-dismisses success toasts; errors stay until clicked away.
+let successTimer: ReturnType<typeof setTimeout> | undefined
+
+// showError surfaces an operation failure until the user dismisses it.
+export function showError(text: string): void {
+  clearTimeout(successTimer)
+  toast.set({ kind: 'error', text })
+}
+
+// showSuccess briefly confirms a completed action, clearing itself after a moment.
+export function showSuccess(text: string): void {
+  clearTimeout(successTimer)
+  toast.set({ kind: 'success', text })
+  successTimer = setTimeout(() => toast.set(null), 2500)
+}
+
+// dismissToast hides the current transient message.
+export function dismissToast(): void {
+  clearTimeout(successTimer)
+  toast.set(null)
+}
+
+// appVersion is the build version reported by the backend: the release tag, or
+// "dev" when running an uninjected build. Shown in the settings footer.
+export const appVersion = writable<string>('dev')
 
 // ConfirmRequest is a pending confirmation: the prompt and the resolver awaiting
 // the user's choice. It backs an in-app dialog because the webview's native
@@ -89,22 +119,36 @@ export function resolveConfirm(confirmed: boolean): void {
   }
 }
 
-// run executes an async action, recording any failure in errorMessage.
+// readableMessage extracts a human-readable message from a thrown value, since
+// Wails rejections and plain objects stringify unhelpfully.
+function readableMessage(failure: unknown): string {
+  if (failure instanceof Error) {
+    return failure.message
+  }
+  if (typeof failure === 'string') {
+    return failure
+  }
+  return String(failure)
+}
+
+// run executes an async action, surfacing any failure as an error toast.
 async function run<T>(action: () => Promise<T>): Promise<T | undefined> {
   try {
-    errorMessage.set('')
+    dismissToast()
     return await action()
   } catch (failure) {
-    errorMessage.set(String(failure))
+    showError(readableMessage(failure))
     return undefined
   }
 }
 
-// loadInitial loads the project list and settings when the app starts.
+// loadInitial loads the project list, settings, and build version when the app
+// starts.
 export async function loadInitial(): Promise<void> {
   await run(async () => {
     projects.set(await api.listProjects())
     settings.set(await api.getSettings())
+    appVersion.set(await api.version())
   })
 }
 
@@ -346,10 +390,6 @@ export async function saveSelected(
     return false
   }
   const result = await run(async () => {
-    if (mode === 'edit') {
-      applyView(await api.updateNode(selection, title, body, icon))
-      return false
-    }
     if (mode === 'precursor') {
       const before = new Set(get(view)?.nodes.map((node) => node.id) ?? [])
       const next = await api.createPrecursor(selection, title, body, icon)
@@ -445,18 +485,6 @@ export async function saveSettings(next: Settings): Promise<void> {
   })
 }
 
-// copyCompletedMarkdown writes the completed-tasks table to the system clipboard.
-export async function copyCompletedMarkdown(): Promise<void> {
-  const openView = get(view)
-  if (!openView) {
-    return
-  }
-  await run(async () => {
-    const markdown = await api.getCompletedMarkdown(openView.project.id)
-    await navigator.clipboard.writeText(markdown)
-  })
-}
-
 // exportProjectFile prompts for a path and writes a JSON backup of the open project.
 export async function exportProjectFile(): Promise<void> {
   const openView = get(view)
@@ -464,7 +492,11 @@ export async function exportProjectFile(): Promise<void> {
     return
   }
   await run(async () => {
-    await api.exportProject(openView.project.id)
+    const savedPath = await api.exportProject(openView.project.id)
+    // An empty path means the user cancelled the save dialog, which is not a success.
+    if (savedPath) {
+      showSuccess('Backup saved')
+    }
   })
 }
 

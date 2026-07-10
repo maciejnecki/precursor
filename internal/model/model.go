@@ -92,6 +92,6 @@ type ProximityBond struct {
 // Graph is the full content of one project: every node plus every proximity bond.
 // It is the unit passed to the graph and layout layers and serialized for backup.
 type Graph struct {
-	Nodes           []Node          `json:"nodes"`
-	ProximityBonds  []ProximityBond `json:"proximityBonds"`
+	Nodes          []Node          `json:"nodes"`
+	ProximityBonds []ProximityBond `json:"proximityBonds"`
 }

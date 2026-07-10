@@ -15,7 +15,6 @@
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.36.1",
     "@xyflow/svelte": "^1.0.0",
-    "codemirror": "^6.0.1",
     "marked": "^15.0.12"
   },
   "devDependencies": {

@@ -133,6 +133,41 @@ func TestDecisionsOnLink(test *testing.T) {
 	}
 }
 
+// TestBodyPushesDecisionsDown verifies a task with a description places its first
+// decision farther below than a description-less task does, compensating for the
+// taller card so the visual gap stays the same.
+func TestBodyPushesDecisionsDown(test *testing.T) {
+	plainGraph := model.Graph{Nodes: []model.Node{
+		task("endpoint", nil, 0),
+		task("precursor", stringPointer("endpoint"), 1),
+		decision("decisionOne", "precursor", 0),
+	}}
+	describedNodes := []model.Node{
+		task("endpoint", nil, 0),
+		task("precursor", stringPointer("endpoint"), 1),
+		decision("decisionOne", "precursor", 0),
+	}
+	describedNodes[1].BodyMarkdown = "a long description that the card truncates"
+	describedGraph := model.Graph{Nodes: describedNodes}
+
+	plainResult := Compute(plainGraph, DefaultConfig())
+	describedResult := Compute(describedGraph, DefaultConfig())
+
+	plainTask, _ := placementFor(plainResult, "precursor")
+	plainDecision, _ := placementFor(plainResult, "decisionOne")
+	describedTask, _ := placementFor(describedResult, "precursor")
+	describedDecision, _ := placementFor(describedResult, "decisionOne")
+
+	plainGap := plainDecision.Y - plainTask.Y
+	describedGap := describedDecision.Y - describedTask.Y
+	if describedGap <= plainGap {
+		test.Fatalf("expected the described task's decision pushed farther down, got gap %.1f vs plain %.1f", describedGap, plainGap)
+	}
+	if math.Abs((describedGap-plainGap)-taskBodyExtraHeight) > 0.001 {
+		test.Fatalf("expected the gap to grow by the body height %.1f, grew by %.1f", taskBodyExtraHeight, describedGap-plainGap)
+	}
+}
+
 // TestDeterministic verifies identical input yields identical output.
 func TestDeterministic(test *testing.T) {
 	graph := model.Graph{Nodes: []model.Node{

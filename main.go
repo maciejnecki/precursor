@@ -15,6 +15,10 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+// version identifies the running build. Release builds overwrite it with the git
+// tag via -ldflags "-X main.version=..." (see the Makefile); dev builds keep "dev".
+var version = "dev"
+
 // buildAppMenu assembles the native macOS menu bar. The standard App menu supplies
 // Quit (cmd+q); a File menu adds Close Window (cmd+w); the Edit menu restores the
 // system clipboard shortcuts inside the webview; the Window menu adds minimise/zoom.
@@ -32,7 +36,7 @@ func buildAppMenu(app *App) *menu.Menu {
 
 func main() {
 	// Create an instance of the app structure
-	app := NewApp()
+	app := NewApp(version)
 
 	// Create application with options
 	err := wails.Run(&options.App{

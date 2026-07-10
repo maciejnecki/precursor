@@ -4,22 +4,35 @@
   import { renderMarkdown } from '../markdown'
 
   // A task node renders as a dark card with a titled header, a divider, and a few
-  // lines of its rendered description. Double-clicking opens the detail modal.
-  let { data }: {
+  // lines of its rendered description. Selection arrives as Svelte Flow's node-level
+  // flag so the data object stays stable. Double-clicking opens the detail modal.
+  let { data, selected = false }: {
     data: {
       id: string
       title: string
       body: string
       icon: string
       colour: string
-      selected: boolean
       decisionCount: number
       decisionsCollapsed: boolean
     }
+    selected?: boolean
   } = $props()
 
+  // previewFor caches the last rendered body so an unchanged body is not re-parsed
+  // when the surrounding data object is replaced by a view refresh.
+  let cachedBody: string | null = null
+  let cachedPreview = ''
+  function previewFor(body: string): string {
+    if (body !== cachedBody) {
+      cachedBody = body
+      cachedPreview = renderMarkdown(body)
+    }
+    return cachedPreview
+  }
+
   // preview is the node body rendered to HTML for the in-node snippet.
-  let preview = $derived(renderMarkdown(data.body))
+  let preview = $derived(previewFor(data.body))
 
   // toggle flips the collapsed state of this task's decision link without letting
   // the click bubble up to node selection or the detail modal.
@@ -31,7 +44,7 @@
 
 <div
   class="task-node"
-  class:selected={data.selected}
+  class:selected
   style={`--node-colour:${data.colour}`}
   ondblclick={() => openNodeModal(data.id)}
   role="button"

@@ -3,7 +3,7 @@
 // EditorMode is the active behaviour of the bottom editor. With a node selected
 // the compose popup adds a precursor or a decision; with no selection only a new
 // endpoint task can be created.
-export type EditorMode = 'edit' | 'precursor' | 'decision' | 'proximity'
+export type EditorMode = 'precursor' | 'decision'
 
 // DecisionTypeOption pairs a decision type value with its display label and the
 // glyph shown on its selector button.

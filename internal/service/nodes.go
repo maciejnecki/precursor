@@ -53,7 +53,9 @@ func newDecisionNode(childID string, decisionType model.DecisionType, title, bod
 }
 
 // mutate runs an operation against the active project's repository and returns the
-// refreshed view. It centralises the locking and active-project checks.
+// refreshed view. It centralises the locking and active-project checks, and runs
+// the operation inside a single transaction so multi-statement mutations either
+// fully apply or leave the project untouched.
 func (service *Service) mutate(operation func(repository *storage.Repository) error) (ProjectView, error) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
@@ -61,8 +63,8 @@ func (service *Service) mutate(operation func(repository *storage.Repository) er
 	if service.active == nil {
 		return ProjectView{}, errNoActiveProject
 	}
-	if operationError := operation(service.active); operationError != nil {
-		return ProjectView{}, operationError
+	if transactionError := service.active.WithinTransaction(operation); transactionError != nil {
+		return ProjectView{}, transactionError
 	}
 	return service.activeView()
 }
