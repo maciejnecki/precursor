@@ -3,6 +3,7 @@
 // stores consistent after every backend call.
 import { derived, get, writable } from 'svelte/store'
 import { api, type Project, type ProjectView, type Settings } from './api'
+import { canvasCommands } from './canvasCommands'
 import type { EditorMode } from './types'
 
 // projects holds the metadata of every project for the sidebar.
@@ -89,6 +90,78 @@ export function showSuccess(text: string): void {
 export function dismissToast(): void {
   clearTimeout(successTimer)
   toast.set(null)
+}
+
+// searchOpen controls visibility of the canvas search bar (cmd+f).
+export const searchOpen = writable<boolean>(false)
+
+// searchQuery is the live text being searched across node titles and descriptions.
+export const searchQuery = writable<string>('')
+
+// searchFocusToken is bumped every time the search bar is (re)opened, so the bar
+// refocuses and reselects its query text even when it is already showing.
+export const searchFocusToken = writable<number>(0)
+
+// searchActiveIndex is the position within the match list that Enter-cycling last
+// visited, shown as the first half of the bar's "2 / 7" counter.
+export const searchActiveIndex = writable<number>(0)
+
+// searchMatchIds is the ordered list of node ids whose title or description contains
+// the query, case-insensitively. It is empty for a blank query and recomputes from
+// the view, so edited or deleted nodes drop out of the match set automatically.
+export const searchMatchIds = derived([view, searchQuery], ([openView, query]) => {
+  const needle = query.trim().toLowerCase()
+  if (!openView || needle.length === 0) {
+    return []
+  }
+  return openView.nodes
+    .filter(
+      (node) =>
+        node.title.toLowerCase().includes(needle) || node.bodyMarkdown.toLowerCase().includes(needle)
+    )
+    .map((node) => node.id)
+})
+
+// searchNavigated tracks whether Enter has been pressed for the current query, so
+// the first Enter pans to the first match instead of skipping past it.
+let searchNavigated = false
+
+// openSearch shows the search bar and bumps the focus token so the input grabs
+// focus (and reselects its text) even if the bar was already open.
+export function openSearch(): void {
+  searchOpen.set(true)
+  searchFocusToken.update((token) => token + 1)
+}
+
+// closeSearch hides the search bar and clears the query, which empties the match
+// set and removes all dimming from the canvas.
+export function closeSearch(): void {
+  searchOpen.set(false)
+  searchQuery.set('')
+  searchActiveIndex.set(0)
+  searchNavigated = false
+}
+
+// setSearchQuery updates the live query and restarts cycling from the first match.
+export function setSearchQuery(query: string): void {
+  searchQuery.set(query)
+  searchActiveIndex.set(0)
+  searchNavigated = false
+}
+
+// navigateSearch pans the canvas to a match: the first press lands on the current
+// match, and subsequent presses step by delta with wrap-around in both directions.
+export function navigateSearch(delta: number): void {
+  const matches = get(searchMatchIds)
+  if (matches.length === 0) {
+    return
+  }
+  const current = get(searchActiveIndex)
+  const clamped = current < matches.length ? current : 0
+  const next = searchNavigated ? (clamped + delta + matches.length) % matches.length : clamped
+  searchNavigated = true
+  searchActiveIndex.set(next)
+  canvasCommands()?.centerOnNode(matches[next])
 }
 
 // appVersion is the build version reported by the backend: the release tag, or
@@ -219,6 +292,7 @@ export async function openProject(identifier: string): Promise<void> {
     editModalOpen.set(false)
     editorOpen.set(false)
     editorMode.set('precursor')
+    closeSearch()
     view.set(opened)
   })
 }

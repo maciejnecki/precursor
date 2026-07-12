@@ -6,8 +6,19 @@
   import ChainBackground from './nodes/ChainBackground.svelte'
   import ZoomController from './ZoomController.svelte'
   import CanvasControls from './CanvasControls.svelte'
+  import SearchBar from './SearchBar.svelte'
   import FloatingEdge from './edges/FloatingEdge.svelte'
-  import { closeEditor, handleNodeClick, selectNode, selectedNodeIds, setEditorAnchor, settings, view } from './store'
+  import {
+    closeEditor,
+    handleNodeClick,
+    searchMatchIds,
+    searchQuery,
+    selectNode,
+    selectedNodeIds,
+    setEditorAnchor,
+    settings,
+    view
+  } from './store'
   import { computeChainAreas } from './chains'
   import type { NodeView, Settings } from './api'
 
@@ -93,12 +104,26 @@
     }))
   ])
 
-  // flowNodes stamps the current selection onto the base nodes at the node level.
-  // Only the thin wrapper objects are recreated on a selection change; each card's
-  // data keeps its identity, so the node components do not re-render their content.
+  // searchActive reports whether a search query is being applied to the canvas.
+  let searchActive = $derived($searchQuery.trim().length > 0)
+
+  // matchIdSet indexes the search matches for constant-time membership checks while
+  // stamping the dimming class onto the flow nodes.
+  let matchIdSet = $derived(new Set($searchMatchIds))
+
+  // flowNodes stamps the current selection and search dimming onto the base nodes at
+  // the node level. Only the thin wrapper objects are recreated on a selection or
+  // search change; each card's data keeps its identity, so the node components do
+  // not re-render their content. Chain backgrounds are never dimmed.
   let flowNodes = $derived<Node[]>(
     baseFlowNodes.map((node) =>
-      node.type === 'chainBackground' ? node : { ...node, selected: $selectedNodeIds.includes(node.id) }
+      node.type === 'chainBackground'
+        ? node
+        : {
+            ...node,
+            selected: $selectedNodeIds.includes(node.id),
+            class: searchActive && !matchIdSet.has(node.id) ? 'search-dimmed' : ''
+          }
     )
   )
 
@@ -143,7 +168,9 @@
   }
 </script>
 
-<div class="canvas" onpointerdown={recordPointer}>
+<!-- The wrapper only records pointer positions for the compose popup; it exposes no
+     interaction of its own, so it is presentational to assistive technology. -->
+<div class="canvas" role="presentation" onpointerdown={recordPointer}>
   {#if hasProject}
     <SvelteFlow
       nodes={flowNodes}
@@ -172,6 +199,7 @@
       <Background gap={36} size={1} />
       <ZoomController />
       <CanvasControls />
+      <SearchBar />
     </SvelteFlow>
 
     {#if isEmpty}
@@ -222,5 +250,16 @@
   :global(.svelte-flow__node-chainBackground) {
     pointer-events: none;
     cursor: default;
+  }
+
+  /* Search dimming fades cards in and out smoothly as the query changes. */
+  :global(.svelte-flow__node-task),
+  :global(.svelte-flow__node-decision) {
+    transition: opacity 160ms ease;
+  }
+
+  /* Nodes that do not match the active search query fade back so matches stand out. */
+  :global(.svelte-flow__node.search-dimmed) {
+    opacity: 0.15;
   }
 </style>

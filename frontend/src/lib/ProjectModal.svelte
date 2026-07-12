@@ -15,7 +15,7 @@
   let description = $state('')
   let icon = $state(randomGlyph())
 
-  let nameInput: HTMLInputElement | undefined
+  let nameInput: HTMLInputElement | undefined = $state()
 
   // editing reports whether the modal is editing an existing project rather than
   // creating one, which drives the heading, button label, and submit action.
@@ -60,7 +60,9 @@
 </script>
 
 {#if $projectModalOpen}
-  <div class="overlay" onclick={closeProjectModal}></div>
+  <!-- The backdrop dismisses on click; keyboard users close the modal with Escape,
+       so it is presentational to assistive technology. -->
+  <div class="overlay" role="presentation" onclick={closeProjectModal}></div>
   <div class="panel">
     <h2>{editing ? 'Edit Project' : 'New Project'}</h2>
     <div class="row">

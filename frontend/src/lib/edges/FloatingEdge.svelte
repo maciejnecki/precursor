@@ -15,8 +15,12 @@
   let { id, source, target, markerEnd, style, data }: EdgeProps = $props()
 
   // useInternalNode exposes each node's measured size and absolute position as a
-  // reactive object whose latest value is read from its `current` property.
+  // reactive object whose latest value is read from its `current` property. Reading
+  // the initial prop values here is intentional: an edge's source and target never
+  // change for its lifetime, because Canvas recreates edges under new ids instead.
+  // svelte-ignore state_referenced_locally
   const sourceNode = useInternalNode(source)
+  // svelte-ignore state_referenced_locally
   const targetNode = useInternalNode(target)
 
   // centre returns the absolute centre point of a node.

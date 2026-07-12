@@ -44,7 +44,9 @@
 </script>
 
 {#if $showSettings && draft}
-  <div class="overlay" onclick={close}></div>
+  <!-- The backdrop dismisses on click; keyboard users close the panel with Escape,
+       so it is presentational to assistive technology. -->
+  <div class="overlay" role="presentation" onclick={close}></div>
   <div class="panel">
     <h2>Settings</h2>
     <p class="section">Status colours</p>

@@ -22,8 +22,8 @@
   let icon = $state('')
   let decisionType = $state('plain')
 
-  let titleInput: HTMLInputElement | undefined
-  let codeMirror: ReturnType<typeof CodeMirror> | undefined
+  let titleInput: HTMLInputElement | undefined = $state()
+  let codeMirror: ReturnType<typeof CodeMirror> | undefined = $state()
 
   // Popup geometry: position is the top-left in viewport pixels; the popup spawns at
   // the click anchor and can then be dragged by its header.
@@ -154,7 +154,9 @@
 
 {#if $editorOpen}
   <div class="editor" style={`left:${position.x}px; top:${position.y}px`}>
-    <div class="header" onpointerdown={startDrag}>
+    <!-- The header is the popup's mouse drag handle; the popup needs no keyboard
+         positioning, so the handle is presentational to assistive technology. -->
+    <div class="header" role="presentation" onpointerdown={startDrag}>
       <span class="title-label">{composeHeading}</span>
     </div>
 

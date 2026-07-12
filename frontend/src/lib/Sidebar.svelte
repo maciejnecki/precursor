@@ -113,6 +113,7 @@
 {#if contextMenu}
   <div
     class="context-backdrop"
+    role="presentation"
     onclick={closeContextMenu}
     oncontextmenu={(event) => {
       event.preventDefault()

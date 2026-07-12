@@ -58,7 +58,9 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if $editModalOpen && node}
-  <div class="overlay" onclick={closeEditModal}></div>
+  <!-- The backdrop dismisses on click; keyboard users close the modal with Escape,
+       so it is presentational to assistive technology. -->
+  <div class="overlay" role="presentation" onclick={closeEditModal}></div>
   <div class="panel">
     <h2>Edit node</h2>
     <div class="row">

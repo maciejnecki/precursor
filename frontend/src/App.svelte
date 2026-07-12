@@ -9,11 +9,13 @@
   import NodeEditModal from './lib/NodeEditModal.svelte'
   import ProjectModal from './lib/ProjectModal.svelte'
   import ConfirmDialog from './lib/ConfirmDialog.svelte'
+  import { canvasCommands } from './lib/canvasCommands'
   import {
     closeEditModal,
     closeEditor,
     closeNodeModal,
     closeProjectModal,
+    closeSearch,
     confirmAndDeleteActiveProject,
     confirmAndDeleteSelected,
     confirmRequest,
@@ -29,6 +31,7 @@
     openNodeModal,
     openProjectEditModal,
     openProjectModal,
+    openSearch,
     projectModalOpen,
     resolveConfirm,
     selectedNodeId,
@@ -90,8 +93,10 @@
   // task; with one task selected "t" adds a precursor (inserted ahead of any existing
   // one), "e" edits it, "d" adds a decision, and cmd+i opens its detail modal; with
   // several tasks selected "p" clusters them; cmd+n opens the new-project modal;
-  // Backspace deletes the canvas selection or, when focus is in the sidebar, the open
-  // project; Escape closes the popup and the project modal.
+  // "h" recentres on the first endpoint and "shift+h" zooms to fit; cmd+f opens the
+  // canvas search bar (Enter/Shift+Enter cycle matches, Escape closes it); Backspace
+  // deletes the canvas selection or, when focus is in the sidebar, the open project;
+  // Escape closes the popup and the project modal.
   function onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       // A pending confirmation sits on top of everything, so Escape cancels just it;
@@ -104,6 +109,7 @@
       closeProjectModal()
       closeNodeModal()
       closeEditModal()
+      closeSearch()
       showSettings.set(false)
       return
     }
@@ -114,6 +120,16 @@
       if (!isTyping(event.target) && !overlayOpen()) {
         event.preventDefault()
         openProjectModal()
+      }
+      return
+    }
+    // cmd+f opens (or refocuses) the canvas search bar. The webview's native find is
+    // always suppressed, and the isTyping guard is deliberately skipped so pressing
+    // cmd+f inside the search input reselects the query text.
+    if (isCommand && event.key.toLowerCase() === 'f') {
+      event.preventDefault()
+      if (!overlayOpen() && get(view)) {
+        openSearch()
       }
       return
     }
@@ -167,6 +183,16 @@
     } else if (key === 'p' && get(selectedNodeIds).length >= 2) {
       event.preventDefault()
       void createProximityGroup()
+    } else if (key === 'h') {
+      // "h" mirrors the Home button and "shift+h" the Fit button, driven through the
+      // canvas command registry because this handler sits outside the flow context.
+      event.preventDefault()
+      const commands = canvasCommands()
+      if (event.shiftKey) {
+        commands?.fitAll()
+      } else {
+        commands?.home()
+      }
     }
   }
 </script>
@@ -197,7 +223,9 @@
 <ConfirmDialog />
 
 {#if $toast}
-  <div class="toast" class:success={$toast.kind === 'success'} onclick={dismissToast}>{$toast.text}</div>
+  <button type="button" class="toast" class:success={$toast.kind === 'success'} onclick={dismissToast}>
+    {$toast.text}
+  </button>
 {/if}
 
 <style>
@@ -243,6 +271,8 @@
     backdrop-filter: blur(24px) saturate(1.3);
   }
 
+  /* The toast is a button so dismissing it works from the keyboard too; it keeps
+     the body's font and colour rather than the browser's button defaults. */
   .toast {
     position: fixed;
     bottom: 16px;
@@ -255,6 +285,9 @@
     border: 1px solid #ef4444;
     border-radius: 8px;
     cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-align: left;
   }
 
   /* Success confirmations reuse the toast shape in the done colour family. */

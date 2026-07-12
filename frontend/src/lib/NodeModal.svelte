@@ -13,7 +13,9 @@
 </script>
 
 {#if node}
-  <div class="overlay" onclick={closeNodeModal}></div>
+  <!-- The backdrop dismisses on click; keyboard users close the modal with Escape,
+       so it is presentational to assistive technology. -->
+  <div class="overlay" role="presentation" onclick={closeNodeModal}></div>
   <div class="panel">
     <header>
       <h2>

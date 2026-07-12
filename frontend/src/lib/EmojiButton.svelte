@@ -49,7 +49,9 @@
   </button>
 
   {#if open}
-    <div class="backdrop" onclick={close}></div>
+    <!-- The backdrop dismisses on click; keyboard users close the picker with
+         Escape, so it is presentational to assistive technology. -->
+    <div class="backdrop" role="presentation" onclick={close}></div>
     <div class="popover">
       <div class="grid">
         {#each iconGlyphs as glyph}

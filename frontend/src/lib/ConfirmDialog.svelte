@@ -3,7 +3,9 @@
 </script>
 
 {#if $confirmRequest}
-  <div class="overlay" onclick={() => resolveConfirm(false)}></div>
+  <!-- The backdrop cancels on click; keyboard users cancel with Escape, so it is
+       presentational to assistive technology. -->
+  <div class="overlay" role="presentation" onclick={() => resolveConfirm(false)}></div>
   <div class="panel">
     <p class="message">{$confirmRequest.message}</p>
     <div class="actions">
