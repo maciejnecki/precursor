@@ -7,6 +7,11 @@
      whole app; the elements that use them pair these with a backdrop blur. */
   --surface-raised: rgba(51, 65, 85, 0.72);
   --surface-input: rgba(30, 41, 59, 0.5);
+  /* The faint wash and barely-there outline shared by the canvas chain panels, the
+     project card, and every modal, so panels read as one material wherever they
+     appear. */
+  --surface-panel: rgba(255, 255, 255, 0.045);
+  --border-panel: rgba(255, 255, 255, 0.07);
   --border: #475569;
   --text: #e2e8f0;
   --text-muted: #94a3b8;

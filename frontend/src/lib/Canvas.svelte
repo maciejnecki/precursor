@@ -4,6 +4,7 @@
   import TaskNode from './nodes/TaskNode.svelte'
   import DecisionNode from './nodes/DecisionNode.svelte'
   import ChainBackground from './nodes/ChainBackground.svelte'
+  import ProjectCard from './nodes/ProjectCard.svelte'
   import ZoomController from './ZoomController.svelte'
   import CanvasControls from './CanvasControls.svelte'
   import SearchBar from './SearchBar.svelte'
@@ -19,12 +20,23 @@
     settings,
     view
   } from './store'
-  import { computeChainAreas } from './chains'
+  import {
+    computeChainAreas,
+    projectCardHeight,
+    projectCardPosition,
+    projectCardWidth,
+    projectCompletion
+  } from './chains'
   import type { NodeView, Settings } from './api'
 
   // nodeTypes maps our node kinds to their canvas components. The chain background
   // is a non-interactive panel drawn behind a chain's task and decision nodes.
-  const nodeTypes = { task: TaskNode, decision: DecisionNode, chainBackground: ChainBackground }
+  const nodeTypes = {
+    task: TaskNode,
+    decision: DecisionNode,
+    chainBackground: ChainBackground,
+    projectCard: ProjectCard
+  }
 
   // edgeTypes maps every link to the radial floating edge so connections attach to
   // the node borders facing each other instead of fixed handles.
@@ -63,8 +75,10 @@
 
   // chainNodes are the light background panels drawn behind each chain, carrying the
   // chain's completion percentage. They sit below the task and decision nodes.
+  let chainAreas = $derived(computeChainAreas($view?.nodes ?? []))
+
   let chainNodes = $derived<Node[]>(
-    computeChainAreas($view?.nodes ?? []).map((area) => ({
+    chainAreas.map((area) => ({
       id: area.id,
       type: 'chainBackground',
       position: { x: area.x, y: area.y },
@@ -80,11 +94,39 @@
     }))
   )
 
+  // projectCardNodes holds the single card summarising the open project, or nothing
+  // when no project is open. It is derived from project metadata rather than stored
+  // in the graph, so it never counts as a node the layout or the endpoint tally sees.
+  let projectCardNodes = $derived<Node[]>(
+    $view
+      ? [
+          {
+            id: 'project-card',
+            type: 'projectCard',
+            position: projectCardPosition(chainAreas),
+            draggable: false,
+            selectable: false,
+            zIndex: 1,
+            data: {
+              name: $view.project.name,
+              icon: $view.project.icon,
+              description: $view.project.description,
+              percent: projectCompletion($view.nodes),
+              width: projectCardWidth,
+              height: projectCardHeight,
+              doneColour: $settings?.statusColours?.done ?? '#22c55e'
+            }
+          }
+        ]
+      : []
+  )
+
   // baseFlowNodes is the Svelte Flow node array derived from the open project's view.
   // The chain backgrounds come first so the cards stack above them. It deliberately
   // does not depend on the selection, so selecting a node reuses these data objects.
   let baseFlowNodes = $derived<Node[]>([
     ...chainNodes,
+    ...projectCardNodes,
     ...($view?.nodes ?? []).map((node) => ({
       id: node.id,
       type: node.kind,

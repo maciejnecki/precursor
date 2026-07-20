@@ -6,6 +6,7 @@
   import Editor from './lib/Editor.svelte'
   import Settings from './lib/Settings.svelte'
   import NodeModal from './lib/NodeModal.svelte'
+  import ProjectDetailModal from './lib/ProjectDetailModal.svelte'
   import NodeEditModal from './lib/NodeEditModal.svelte'
   import ProjectModal from './lib/ProjectModal.svelte'
   import ConfirmDialog from './lib/ConfirmDialog.svelte'
@@ -14,6 +15,7 @@
     closeEditModal,
     closeEditor,
     closeNodeModal,
+    closeProjectDetail,
     closeProjectModal,
     closeSearch,
     confirmAndDeleteActiveProject,
@@ -29,9 +31,11 @@
     openEditModal,
     openNewTaskAtCenter,
     openNodeModal,
+    openProjectDetail,
     openProjectEditModal,
     openProjectModal,
     openSearch,
+    projectDetailOpen,
     projectModalOpen,
     resolveConfirm,
     selectedNodeId,
@@ -75,6 +79,7 @@
     return (
       get(editorOpen) ||
       get(modalNodeId) !== null ||
+      get(projectDetailOpen) ||
       get(editModalOpen) ||
       get(projectModalOpen) ||
       get(showSettings) ||
@@ -108,6 +113,7 @@
       closeEditor()
       closeProjectModal()
       closeNodeModal()
+      closeProjectDetail()
       closeEditModal()
       closeSearch()
       showSettings.set(false)
@@ -146,12 +152,16 @@
       }
       return
     }
-    // cmd+i opens the detail modal for the single selected node.
+    // cmd+i opens the detail modal for the single selected node, or the open
+    // project's own detail modal when the canvas selection is empty, since the
+    // project card is not selectable.
     if (isCommand && event.key.toLowerCase() === 'i') {
       const selected = singleSelectedNode()
+      event.preventDefault()
       if (selected) {
-        event.preventDefault()
         openNodeModal(selected.id)
+      } else if (get(selectedNodeIds).length === 0) {
+        openProjectDetail()
       }
       return
     }
@@ -218,6 +228,7 @@
 <Editor />
 <Settings />
 <NodeModal />
+<ProjectDetailModal />
 <NodeEditModal />
 <ProjectModal />
 <ConfirmDialog />

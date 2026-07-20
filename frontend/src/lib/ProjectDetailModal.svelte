@@ -1,31 +1,28 @@
 <script lang="ts">
-  import { closeNodeModal, modalNodeId, view } from './store'
+  import { closeProjectDetail, projectDetailOpen, view } from './store'
   import { renderMarkdown } from './markdown'
-  import type { NodeView } from './api'
 
-  // node resolves the node currently shown in the detail modal from the open view.
-  let node = $derived<NodeView | undefined>(
-    $view?.nodes.find((candidate) => candidate.id === $modalNodeId)
-  )
+  // project is the open project, whose full description this modal presents.
+  let project = $derived($view?.project)
 
-  // body is the node's description rendered to HTML for display.
-  let body = $derived(node ? renderMarkdown(node.bodyMarkdown) : '')
+  // description is the project's description rendered to HTML for display.
+  let description = $derived(project ? renderMarkdown(project.description) : '')
 </script>
 
-{#if node}
+{#if $projectDetailOpen && project}
   <!-- The backdrop dismisses on click; keyboard users close the modal with Escape,
        so it is presentational to assistive technology. -->
-  <div class="overlay" role="presentation" onclick={closeNodeModal}></div>
+  <div class="overlay" role="presentation" onclick={closeProjectDetail}></div>
   <div class="panel">
     <header>
       <h2>
-        {#if node.icon}<span class="icon">{node.icon}</span>{/if}
-        {node.title || 'Untitled'}
+        {#if project.icon}<span class="icon">{project.icon}</span>{/if}
+        {project.name || 'Untitled'}
       </h2>
     </header>
     <div class="content">
-      {#if body}
-        <div class="markdown">{@html body}</div>
+      {#if description}
+        <div class="markdown">{@html description}</div>
       {:else}
         <p class="empty">No description.</p>
       {/if}

@@ -2,6 +2,7 @@
   import {
     confirmAndDeleteProject,
     openProject,
+    openProjectEditModal,
     openProjectModal,
     projects,
     showSettings,
@@ -31,7 +32,7 @@
 
   // The context menu's footprint, used to keep it on screen near the cursor.
   const contextMenuWidth = 170
-  const contextMenuHeight = 44
+  const contextMenuHeight = 84
 
   // openContextMenu shows the project context menu at the cursor, clamped on screen.
   function openContextMenu(event: MouseEvent, id: string, name: string): void {
@@ -44,6 +45,17 @@
   // closeContextMenu hides the project context menu.
   function closeContextMenu(): void {
     contextMenu = null
+  }
+
+  // editFromContextMenu opens the project modal in edit mode for the project the menu
+  // was opened on. The project is edited in place, so whichever project is currently
+  // open on the canvas stays open.
+  function editFromContextMenu(): void {
+    if (contextMenu) {
+      const target = contextMenu
+      closeContextMenu()
+      openProjectEditModal(target.id)
+    }
   }
 
   // deleteFromContextMenu confirms and deletes the project the menu was opened on.
@@ -121,6 +133,8 @@
     }}
   ></div>
   <div class="context-menu" style={`left:${contextMenu.x}px; top:${contextMenu.y}px`}>
+    <button type="button" class="context-item" onclick={editFromContextMenu}>Edit project</button>
+    <div class="context-separator"></div>
     <button type="button" class="context-item danger" onclick={deleteFromContextMenu}>Delete project</button>
   </div>
 {/if}
@@ -227,25 +241,40 @@
     z-index: 120;
   }
 
+  /* Menu chrome follows the macOS context-menu proportions: a tight 5px frame, a
+     small corner radius, and a soft shadow that reads as floating rather than heavy. */
   .context-menu {
     position: fixed;
     z-index: 121;
-    min-width: 150px;
+    min-width: 170px;
     display: flex;
     flex-direction: column;
-    padding: 4px;
+    gap: 1px;
+    padding: 5px;
     background-color: var(--surface-raised);
     backdrop-filter: var(--blur-panel);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    border-radius: 6px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
   }
 
   .context-item {
     width: 100%;
+    padding: 4px 8px;
     text-align: left;
+    font-size: 13px;
+    line-height: 18px;
     background-color: transparent;
     border-color: transparent;
+    border-radius: 4px;
+  }
+
+  /* A hairline rule keeps the destructive item from reading as part of the group
+     above it. It insets slightly so it stops short of the menu's rounded corners. */
+  .context-separator {
+    height: 1px;
+    margin: 4px 6px;
+    background-color: var(--border);
   }
 
   .context-item.danger {

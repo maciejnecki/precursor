@@ -92,9 +92,9 @@
     flex-direction: column;
     gap: 8px;
     padding: 18px;
-    background-color: var(--surface-raised);
+    background-color: var(--surface-panel);
     backdrop-filter: var(--blur-panel);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-panel);
     border-radius: 10px;
   }
 

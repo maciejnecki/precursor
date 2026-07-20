@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CodeMirror from './CodeMirror.svelte'
   import EmojiButton from './EmojiButton.svelte'
   import { randomGlyph } from './types'
   import {
@@ -75,7 +76,9 @@
       bind:this={nameInput}
       onkeydown={handleNameKeydown}
     />
-    <input type="text" placeholder="Description" bind:value={description} />
+    <div class="body">
+      <CodeMirror bind:value={description} placeholder="Markdown description" onSave={submit} />
+    </div>
     <button type="button" class="primary submit" onclick={submit}>{editing ? 'Save' : 'Create'}</button>
   </div>
 {/if}
@@ -94,15 +97,18 @@
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 90;
-    width: 420px;
+    width: 460px;
     max-width: 90vw;
+    /* The description is now a markdown editor, so the panel takes a fixed height and
+       lets the editor absorb the slack, matching the node edit modal. */
+    height: 56vh;
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding: 18px;
-    background-color: var(--surface-raised);
+    background-color: var(--surface-panel);
     backdrop-filter: var(--blur-panel);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-panel);
     border-radius: 10px;
   }
 
@@ -115,6 +121,13 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  /* The markdown editor fills the space left between the name field and the submit
+     button, so it grows with the modal rather than to fit its content. */
+  .body {
+    flex: 1;
+    min-height: 0;
   }
 
   /* The create button spans the modal as a prominent, taller call to action,

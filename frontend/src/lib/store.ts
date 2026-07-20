@@ -56,6 +56,10 @@ export const projectEditId = writable<string | null>(null)
 // modalNodeId is the node whose detail modal is open, or null when none is shown.
 export const modalNodeId = writable<string | null>(null)
 
+// projectDetailOpen reports whether the open project's detail modal is showing. The
+// modal reads the project straight from the view, so a flag is all it needs.
+export const projectDetailOpen = writable<boolean>(false)
+
 // editNodeId is the node the editor modal is editing; it is independent of the
 // detail modal so the editor can be opened directly with the "e" shortcut.
 export const editNodeId = writable<string | null>(null)
@@ -411,6 +415,19 @@ export function openNodeModal(identifier: string): void {
 // closeNodeModal hides the detail modal.
 export function closeNodeModal(): void {
   modalNodeId.set(null)
+}
+
+// openProjectDetail shows the open project's detail modal, which presents the full
+// description the canvas card can only show a scrolling window onto. It closes the
+// compose popup for the same reason openNodeModal does.
+export function openProjectDetail(): void {
+  projectDetailOpen.set(true)
+  editorOpen.set(false)
+}
+
+// closeProjectDetail hides the project detail modal.
+export function closeProjectDetail(): void {
+  projectDetailOpen.set(false)
 }
 
 // openEditModal opens the editor modal for a node, used by the "e" shortcut and the
