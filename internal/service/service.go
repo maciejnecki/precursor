@@ -24,8 +24,9 @@ type Service struct {
 	store    *storage.Store
 	settings *config.Manager
 
-	mutex  sync.Mutex
-	active *storage.Repository
+	mutex   sync.Mutex
+	active  *storage.Repository
+	history history
 }
 
 // New builds a service rooted at the given base directory, placing project
@@ -102,6 +103,9 @@ func (service *Service) OpenProject(identifier string) (ProjectView, error) {
 		return ProjectView{}, openError
 	}
 	service.active = repository
+	// Undo snapshots describe the project that was just closed, so they are worthless
+	// against the one being opened.
+	service.history.clear()
 	return service.activeView()
 }
 

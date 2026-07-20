@@ -21,6 +21,8 @@ export const api = {
   updateNode: bindings.UpdateNode,
   setDecisionsCollapsed: bindings.SetDecisionsCollapsed,
   deleteNode: bindings.DeleteNode,
+  undo: bindings.Undo,
+  redo: bindings.Redo,
   createProximityGroup: bindings.CreateProximityGroup,
   getSettings: bindings.GetSettings,
   saveSettings: bindings.SaveSettings,

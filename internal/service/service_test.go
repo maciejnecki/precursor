@@ -37,7 +37,7 @@ func findTaskByTitle(view ProjectView, title string) (NodeView, bool) {
 }
 
 // TestHappyPath exercises creating a project, logging a chain, advancing status by
-// decision, and deleting a node with chain healing, all through the service.
+// decision, and deleting an endpoint along with its chain, all through the service.
 func TestHappyPath(test *testing.T) {
 	service := openService(test)
 
@@ -73,7 +73,7 @@ func TestHappyPath(test *testing.T) {
 		test.Fatalf("expected precursor done after decision, got %q", precursor.Status)
 	}
 
-	// Deleting the endpoint should promote the precursor to a new endpoint.
+	// Deleting the endpoint should take its whole chain with it.
 	view, deleteError := service.DeleteNode(endpoint.ID)
 	if deleteError != nil {
 		test.Fatalf("DeleteNode: %v", deleteError)
@@ -81,9 +81,11 @@ func TestHappyPath(test *testing.T) {
 	if _, stillThere := nodeViewByID(view, endpoint.ID); stillThere {
 		test.Fatalf("expected endpoint removed")
 	}
-	promoted, found := nodeViewByID(view, precursor.ID)
-	if !found || promoted.ParentID != nil {
-		test.Fatalf("expected precursor promoted to endpoint, got %+v", promoted)
+	if _, stillThere := nodeViewByID(view, precursor.ID); stillThere {
+		test.Fatalf("expected the endpoint's precursor removed with the chain")
+	}
+	if len(view.Nodes) != 0 {
+		test.Fatalf("expected the chain fully removed, got %+v", view.Nodes)
 	}
 }
 

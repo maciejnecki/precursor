@@ -504,18 +504,55 @@ export async function saveSelected(
   return result === true
 }
 
-// confirmAndDeleteSelected asks for confirmation, then deletes every selected node,
-// healing each chain. Used by the Backspace shortcut for one or many tasks.
+// isEndpoint reports whether the node with the given id is a chain root: a task
+// with no parent. Deleting one takes its whole chain with it, so the confirmation
+// copy has to say so.
+function isEndpoint(identifier: string): boolean {
+  const node = get(view)?.nodes.find((candidate) => candidate.id === identifier)
+  return node?.kind === 'task' && !node.parentId
+}
+
+// chainLength counts the tasks that would go with an endpoint, by walking the
+// parent links back from the endpoint the same way the backend's chain walk does.
+function chainLength(endpointId: string): number {
+  const nodes = get(view)?.nodes ?? []
+  let count = 0
+  let current: string | undefined = endpointId
+  while (current) {
+    count += 1
+    const next: string | undefined = nodes.find(
+      (node) => node.kind === 'task' && node.parentId === current
+    )?.id
+    current = next
+  }
+  return count
+}
+
+// deleteMessage describes what deleting the given selection will actually do, so
+// the irreversible case (an endpoint taking its chain with it) is never a surprise.
+function deleteMessage(ids: string[]): string {
+  if (ids.length > 1) {
+    return ids.some(isEndpoint)
+      ? `Delete ${ids.length} selected nodes? Any endpoint takes its entire chain with it.`
+      : `Delete ${ids.length} selected nodes? Their chains will be healed.`
+  }
+  if (isEndpoint(ids[0])) {
+    const length = chainLength(ids[0])
+    return length > 1
+      ? `Delete this endpoint and its entire chain (${length} tasks)?`
+      : 'Delete this endpoint?'
+  }
+  return 'Delete this node? Its chain will be healed.'
+}
+
+// confirmAndDeleteSelected asks for confirmation, then deletes every selected node.
+// Used by the Backspace shortcut for one or many nodes.
 export async function confirmAndDeleteSelected(): Promise<void> {
   const ids = get(selectedNodeIds)
   if (ids.length === 0) {
     return
   }
-  const message =
-    ids.length > 1
-      ? `Delete ${ids.length} selected nodes? Their chains will be healed.`
-      : 'Delete this node? Its chain will be healed.'
-  if (!(await requestConfirm(message))) {
+  if (!(await requestConfirm(deleteMessage(ids)))) {
     return
   }
   await run(async () => {
@@ -557,7 +594,8 @@ export async function toggleDecisions(identifier: string, collapsed: boolean): P
   })
 }
 
-// deleteNodeById removes a node by id and heals its chain, closing any open modal.
+// deleteNodeById removes a node by id, taking its whole chain when it is an
+// endpoint and healing the chain otherwise, then closes any open modal.
 export async function deleteNodeById(identifier: string): Promise<void> {
   await run(async () => {
     applyView(await api.deleteNode(identifier))
@@ -565,6 +603,22 @@ export async function deleteNodeById(identifier: string): Promise<void> {
     modalNodeId.set(null)
     editNodeId.set(null)
     editModalOpen.set(false)
+  })
+}
+
+// undo reverts the most recent change to the open project. applyView already drops
+// any selection or open modal whose node the restore removed, so nothing else needs
+// clearing here. With nothing to undo the backend returns the view unchanged.
+export async function undo(): Promise<void> {
+  await run(async () => {
+    applyView(await api.undo())
+  })
+}
+
+// redo re-applies the most recently undone change to the open project.
+export async function redo(): Promise<void> {
+  await run(async () => {
+    applyView(await api.redo())
   })
 }
 

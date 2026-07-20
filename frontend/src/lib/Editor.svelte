@@ -161,7 +161,7 @@
     <!-- The header is the popup's mouse drag handle; the popup needs no keyboard
          positioning, so the handle is presentational to assistive technology. -->
     <div class="header" role="presentation" onpointerdown={startDrag}>
-      <span class="title-label">{composeHeading}</span>
+      <h2>{composeHeading}</h2>
     </div>
 
     <div class="compose">
@@ -210,12 +210,15 @@
     max-width: 90vw;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 14px;
-    background-color: var(--slate-veil);
-    backdrop-filter: blur(24px) saturate(1.3);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
+    gap: 10px;
+    padding: 18px;
+    /* The composer wears the same material as every modal so the two read as one
+       surface. It keeps its shadow because, unlike a modal, it has no backdrop
+       behind it and would otherwise look painted onto the canvas. */
+    background-color: var(--surface-panel);
+    backdrop-filter: var(--blur-panel);
+    border: 1px solid var(--border-panel);
+    border-radius: 10px;
     box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
   }
 
@@ -227,16 +230,15 @@
     cursor: move;
   }
 
-  .title-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #f5f7fa;
+  h2 {
+    margin: 0;
+    font-size: 18px;
   }
 
   .compose {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
 
   .row {

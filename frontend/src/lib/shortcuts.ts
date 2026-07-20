@@ -24,9 +24,11 @@ import {
   openSearch,
   projectDetailOpen,
   projectModalOpen,
+  redo,
   selectedNodeId,
   selectedNodeIds,
   showSettings,
+  undo,
   view
 } from './store'
 import type { NodeView } from './api'
@@ -49,6 +51,8 @@ export type ShortcutId =
   | 'view.home'
   | 'view.fit'
   | 'view.find'
+  | 'edit.undo'
+  | 'edit.redo'
 
 // overlayOpen reports whether a modal, popup, or confirmation is on screen. Most
 // shortcuts stay inert behind one so they cannot act on the canvas underneath.
@@ -154,6 +158,15 @@ export function runShortcut(identifier: ShortcutId): void {
     case 'view.find':
       openSearch()
       break
+    // Undo and redo sit behind the overlay guard above on purpose: while a composer
+    // or edit modal is open, cmd+z belongs to the text field the user is typing in,
+    // where CodeMirror's own history handles it.
+    case 'edit.undo':
+      void undo()
+      break
+    case 'edit.redo':
+      void redo()
+      break
   }
 }
 
@@ -179,6 +192,8 @@ export function shortcutForEvent(event: KeyboardEvent): ShortcutId | null {
       case '0':
       case ')':
         return 'view.fit'
+      case 'z':
+        return 'edit.redo'
       default:
         return null
     }
@@ -207,6 +222,8 @@ export function shortcutForEvent(event: KeyboardEvent): ShortcutId | null {
       return 'view.home'
     case 'f':
       return 'view.find'
+    case 'z':
+      return 'edit.undo'
     default:
       return null
   }

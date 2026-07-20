@@ -74,7 +74,18 @@ func buildAppMenu(app *App) *menu.Menu {
 		runtime.Quit(app.ctx)
 	})
 
+	// Wails' stock Edit menu supplies the clipboard roles, and its own Undo/Redo
+	// roles already carry cmd+z and shift+cmd+z. Graph undo is therefore listed
+	// without accelerators: registering the same combination twice would make which
+	// item wins ambiguous, and the webview keydown handler in App.svelte is what
+	// actually drives it.
 	applicationMenu.Append(menu.EditMenu())
+
+	historyMenu := applicationMenu.AddSubmenu("History")
+	addActions(historyMenu, app, []menuAction{
+		{"edit.undo", "Undo        ⌘Z", nil},
+		{"edit.redo", "Redo        ⇧⌘Z", nil},
+	})
 
 	nodeMenu := applicationMenu.AddSubmenu("Node")
 	addActions(nodeMenu, app, []menuAction{

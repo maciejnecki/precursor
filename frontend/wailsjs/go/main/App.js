@@ -70,6 +70,10 @@ export function OpenProject(arg1) {
   return window['go']['main']['App']['OpenProject'](arg1);
 }
 
+export function Redo() {
+  return window['go']['main']['App']['Redo']();
+}
+
 export function SaveCompletedMarkdown(arg1) {
   return window['go']['main']['App']['SaveCompletedMarkdown'](arg1);
 }
@@ -80,6 +84,10 @@ export function SaveSettings(arg1) {
 
 export function SetDecisionsCollapsed(arg1, arg2) {
   return window['go']['main']['App']['SetDecisionsCollapsed'](arg1, arg2);
+}
+
+export function Undo() {
+  return window['go']['main']['App']['Undo']();
 }
 
 export function UpdateNode(arg1, arg2, arg3, arg4) {

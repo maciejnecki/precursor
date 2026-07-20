@@ -181,13 +181,32 @@ func (app *App) SetDecisionsCollapsed(identifier string, collapsed bool) (servic
 	return current.SetDecisionsCollapsed(identifier, collapsed)
 }
 
-// DeleteNode removes a node and heals its chain.
+// DeleteNode removes a node, taking the whole chain with it for an endpoint and
+// healing the chain for a task within one.
 func (app *App) DeleteNode(identifier string) (service.ProjectView, error) {
 	current, readyError := app.ready()
 	if readyError != nil {
 		return service.ProjectView{}, readyError
 	}
 	return current.DeleteNode(identifier)
+}
+
+// Undo reverts the most recent change to the open project.
+func (app *App) Undo() (service.ProjectView, error) {
+	current, readyError := app.ready()
+	if readyError != nil {
+		return service.ProjectView{}, readyError
+	}
+	return current.Undo()
+}
+
+// Redo re-applies the most recently undone change to the open project.
+func (app *App) Redo() (service.ProjectView, error) {
+	current, readyError := app.ready()
+	if readyError != nil {
+		return service.ProjectView{}, readyError
+	}
+	return current.Redo()
 }
 
 // CreateProximity bonds the chains of the two given nodes.

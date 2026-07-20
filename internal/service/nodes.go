@@ -55,7 +55,10 @@ func newDecisionNode(childID string, decisionType model.DecisionType, title, bod
 // mutate runs an operation against the active project's repository and returns the
 // refreshed view. It centralises the locking and active-project checks, and runs
 // the operation inside a single transaction so multi-statement mutations either
-// fully apply or leave the project untouched.
+// fully apply or leave the project untouched. Being the single choke point for
+// every graph mutation, it is also where undo history is captured: the pre-mutation
+// snapshot is recorded only once the transaction has committed, so a failed
+// operation leaves no undo step behind.
 func (service *Service) mutate(operation func(repository *storage.Repository) error) (ProjectView, error) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
@@ -63,9 +66,14 @@ func (service *Service) mutate(operation func(repository *storage.Repository) er
 	if service.active == nil {
 		return ProjectView{}, errNoActiveProject
 	}
+	before, graphError := service.active.Graph()
+	if graphError != nil {
+		return ProjectView{}, graphError
+	}
 	if transactionError := service.active.WithinTransaction(operation); transactionError != nil {
 		return ProjectView{}, transactionError
 	}
+	service.recordMutation(before)
 	return service.activeView()
 }
 

@@ -364,3 +364,28 @@ func (repository *Repository) Graph() (model.Graph, error) {
 	}
 	return model.Graph{Nodes: nodes, ProximityBonds: bonds}, nil
 }
+
+// ReplaceGraph overwrites the project's content with the given snapshot. Every
+// existing node and bond is removed before the snapshot is written, so a restored
+// parent link can never transiently collide with the unique-parent index against a
+// row that the snapshot is about to replace. Callers must run this inside a
+// transaction so a failed restore leaves the project untouched.
+func (repository *Repository) ReplaceGraph(replacement model.Graph) error {
+	if _, executionError := repository.executor.Exec(`DELETE FROM proximity_bonds`); executionError != nil {
+		return fmt.Errorf("clear proximity bonds: %w", executionError)
+	}
+	if _, executionError := repository.executor.Exec(`DELETE FROM nodes`); executionError != nil {
+		return fmt.Errorf("clear nodes: %w", executionError)
+	}
+	for _, node := range replacement.Nodes {
+		if insertError := repository.InsertNode(node); insertError != nil {
+			return insertError
+		}
+	}
+	for _, bond := range replacement.ProximityBonds {
+		if insertError := repository.InsertProximityBond(bond); insertError != nil {
+			return insertError
+		}
+	}
+	return nil
+}

@@ -38,11 +38,15 @@ export function ListProjects():Promise<Array<model.Project>>;
 
 export function OpenProject(arg1:string):Promise<service.ProjectView>;
 
+export function Redo():Promise<service.ProjectView>;
+
 export function SaveCompletedMarkdown(arg1:string):Promise<string>;
 
 export function SaveSettings(arg1:config.Settings):Promise<void>;
 
 export function SetDecisionsCollapsed(arg1:string,arg2:boolean):Promise<service.ProjectView>;
+
+export function Undo():Promise<service.ProjectView>;
 
 export function UpdateNode(arg1:string,arg2:string,arg3:string,arg4:string):Promise<service.ProjectView>;
 

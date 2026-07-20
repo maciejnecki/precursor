@@ -156,9 +156,10 @@ func TestDeleteMiddleTaskHealsChain(test *testing.T) {
 	}
 }
 
-// TestDeleteEndpointRepointsBond verifies deleting an endpoint promotes its precursor
-// to endpoint and repoints any proximity bond onto the new endpoint.
-func TestDeleteEndpointRepointsBond(test *testing.T) {
+// TestDeleteEndpointRemovesChainAndBond verifies deleting an endpoint deletes its
+// whole chain rather than promoting a precursor, and drops the proximity bonds that
+// referenced it, since no node survives to carry them.
+func TestDeleteEndpointRemovesChainAndBond(test *testing.T) {
 	graph := model.Graph{
 		Nodes: []model.Node{
 			task("endpointA", nil),
@@ -171,14 +172,38 @@ func TestDeleteEndpointRepointsBond(test *testing.T) {
 	}
 	changes := DeleteNode(graph, "endpointA")
 
-	if len(changes.UpdatedNodes) != 1 || changes.UpdatedNodes[0].ID != "innerA" {
-		test.Fatalf("expected innerA promoted, got %+v", changes.UpdatedNodes)
+	if len(changes.UpdatedNodes) != 0 {
+		test.Fatalf("expected no node promoted, got %+v", changes.UpdatedNodes)
 	}
-	if changes.UpdatedNodes[0].ParentID != nil {
-		test.Fatalf("expected innerA to become an endpoint, got parent %v", *changes.UpdatedNodes[0].ParentID)
+	deleted := idSet(changes.DeletedNodeIDs)
+	if !deleted["endpointA"] || !deleted["innerA"] {
+		test.Fatalf("expected the whole chain deleted, got %+v", changes.DeletedNodeIDs)
 	}
-	if len(changes.UpdatedBonds) != 1 || changes.UpdatedBonds[0].EndpointAID != "innerA" {
-		test.Fatalf("expected bond repointed to innerA, got %+v", changes.UpdatedBonds)
+	if deleted["endpointB"] {
+		test.Fatalf("expected the other chain untouched, got %+v", changes.DeletedNodeIDs)
+	}
+	if len(changes.UpdatedBonds) != 0 || len(changes.DeletedBondIDs) != 1 || changes.DeletedBondIDs[0] != "bond" {
+		test.Fatalf("expected the bond dropped, got updated %+v deleted %+v", changes.UpdatedBonds, changes.DeletedBondIDs)
+	}
+}
+
+// TestDeleteEndpointRemovesChainDecisions verifies that deleting an endpoint also
+// removes the decisions documenting every task in the chain it takes with it.
+func TestDeleteEndpointRemovesChainDecisions(test *testing.T) {
+	graph := model.Graph{Nodes: []model.Node{
+		task("endpoint", nil),
+		task("middle", stringPointer("endpoint")),
+		task("outer", stringPointer("middle")),
+		decision("dMiddle", "middle", model.DecisionDone, 0),
+		decision("dOuter", "outer", model.DecisionInProgress, 0),
+	}}
+	changes := DeleteNode(graph, "endpoint")
+
+	deleted := idSet(changes.DeletedNodeIDs)
+	for _, identifier := range []string{"endpoint", "middle", "outer", "dMiddle", "dOuter"} {
+		if !deleted[identifier] {
+			test.Fatalf("expected %q deleted, got %+v", identifier, changes.DeletedNodeIDs)
+		}
 	}
 }
 
