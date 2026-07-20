@@ -2,6 +2,7 @@
   import { get } from 'svelte/store'
   import CodeMirror from './CodeMirror.svelte'
   import EmojiButton from './EmojiButton.svelte'
+  import { registerEditorCommands } from './editorCommands'
   import {
     closeEditor,
     createEndpointTask,
@@ -119,14 +120,17 @@
     icon = ''
   }
 
-  // handleTitleKeydown maps Enter to entering the body and the save shortcut to
-  // saving, so logging stays on the keyboard.
-  function handleTitleKeydown(event: KeyboardEvent): void {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-      event.preventDefault()
-      void save()
-      return
+  // Expose saving to the shortcut dispatcher while the popup is open, so cmd+s and
+  // the menu's Save item commit the composer from any of its fields.
+  $effect(() => {
+    if ($editorOpen) {
+      return registerEditorCommands({ save: () => void save() })
     }
+  })
+
+  // handleTitleKeydown maps Enter to entering the body, so logging stays on the
+  // keyboard; saving is handled centrally by the shortcut dispatcher.
+  function handleTitleKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
       event.preventDefault()
       codeMirror?.focus()

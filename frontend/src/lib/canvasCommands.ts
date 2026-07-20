@@ -1,7 +1,9 @@
-// Canvas command registry. The window-level keyboard handler in App.svelte and the
-// search store live outside the <SvelteFlow> context, so they cannot use the flow
-// hooks directly. Components inside the flow register their viewport commands here,
-// and outside callers invoke them imperatively through the accessor.
+// Canvas command registry. The shortcut dispatcher in shortcuts.ts and the search
+// store live outside the <SvelteFlow> context, so they cannot use the flow hooks
+// directly. Components inside the flow register their viewport commands here, and
+// outside callers invoke them imperatively through the accessor.
+
+import { createCommandRegistry } from './commandRegistry'
 
 // CanvasCommands describes the viewport actions the canvas exposes to the rest of
 // the app.
@@ -11,25 +13,18 @@ export type CanvasCommands = {
   centerOnNode(identifier: string): void
 }
 
-// registeredCommands holds the currently mounted canvas's commands, or null when no
-// project (and therefore no canvas) is open. A plain module variable suffices
-// because nothing renders from it; it is only invoked imperatively.
-let registeredCommands: CanvasCommands | null = null
+// registry holds the currently mounted canvas's commands, or null when no project
+// (and therefore no canvas) is open.
+const registry = createCommandRegistry<CanvasCommands>()
 
 // registerCanvasCommands stores the given commands and returns an unregister
-// function. Unregistering only clears the registry if it still holds the same
-// registration, so a newly mounted canvas is never clobbered by a stale cleanup.
+// function.
 export function registerCanvasCommands(commands: CanvasCommands): () => void {
-  registeredCommands = commands
-  return () => {
-    if (registeredCommands === commands) {
-      registeredCommands = null
-    }
-  }
+  return registry.register(commands)
 }
 
 // canvasCommands returns the currently registered commands, or null when no canvas
 // is mounted; callers treat null as a safe no-op.
 export function canvasCommands(): CanvasCommands | null {
-  return registeredCommands
+  return registry.current()
 }

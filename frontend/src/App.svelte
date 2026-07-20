@@ -10,7 +10,8 @@
   import NodeEditModal from './lib/NodeEditModal.svelte'
   import ProjectModal from './lib/ProjectModal.svelte'
   import ConfirmDialog from './lib/ConfirmDialog.svelte'
-  import { canvasCommands } from './lib/canvasCommands'
+  import { overlayOpen, runShortcut, shortcutForEvent, type ShortcutId } from './lib/shortcuts'
+  import { EventsOn } from '../wailsjs/runtime/runtime'
   import {
     closeEditModal,
     closeEditor,
@@ -21,42 +22,21 @@
     confirmAndDeleteActiveProject,
     confirmAndDeleteSelected,
     confirmRequest,
-    createProximityGroup,
     dismissToast,
-    editModalOpen,
-    editorOpen,
     loadInitial,
-    modalNodeId,
-    openComposeForSelection,
-    openEditModal,
-    openNewTaskAtCenter,
-    openNodeModal,
-    openProjectDetail,
-    openProjectEditModal,
-    openProjectModal,
-    openSearch,
-    projectDetailOpen,
-    projectModalOpen,
     resolveConfirm,
-    selectedNodeId,
     selectedNodeIds,
     showSettings,
     toast,
     view
   } from './lib/store'
-  import type { NodeView } from './lib/api'
 
-  // Load projects and settings once the component is mounted.
-  onMount(loadInitial)
-
-  // singleSelectedNode returns the node when exactly one is selected, else undefined.
-  function singleSelectedNode(): NodeView | undefined {
-    const id = get(selectedNodeId)
-    if (!id) {
-      return undefined
-    }
-    return get(view)?.nodes.find((node) => node.id === id)
-  }
+  // Load projects and settings once the component is mounted, and subscribe to the
+  // native menu bar so its items run the same actions as the keyboard shortcuts.
+  onMount(() => {
+    void loadInitial()
+    return EventsOn('menu:action', (identifier: ShortcutId) => runShortcut(identifier))
+  })
 
   // isTyping reports whether keystrokes are going into a text field, so the canvas
   // shortcuts do not fire while the user is writing.
@@ -73,20 +53,6 @@
     )
   }
 
-  // overlayOpen reports whether any popup or modal is showing, so shortcuts do not
-  // act behind them.
-  function overlayOpen(): boolean {
-    return (
-      get(editorOpen) ||
-      get(modalNodeId) !== null ||
-      get(projectDetailOpen) ||
-      get(editModalOpen) ||
-      get(projectModalOpen) ||
-      get(showSettings) ||
-      get(confirmRequest) !== null
-    )
-  }
-
   // inSidebar reports whether the keystroke originated from the sidebar, used to
   // route Backspace to project deletion rather than canvas node deletion.
   function inSidebar(target: EventTarget | null): boolean {
@@ -94,14 +60,11 @@
     return element !== null && element.closest('.sidebar') !== null
   }
 
-  // onKeydown wires the canvas shortcuts. "shift+t" always creates a new endpoint
-  // task; with one task selected "t" adds a precursor (inserted ahead of any existing
-  // one), "e" edits it, "d" adds a decision, and cmd+i opens its detail modal; with
-  // several tasks selected "p" clusters them; cmd+n opens the new-project modal;
-  // "h" recentres on the first endpoint and "shift+h" zooms to fit; cmd+f opens the
-  // canvas search bar (Enter/Shift+Enter cycle matches, Escape closes it); Backspace
-  // deletes the canvas selection or, when focus is in the sidebar, the open project;
-  // Escape closes the popup and the project modal.
+  // onKeydown handles the two keystrokes that depend on where focus sits, then hands
+  // everything else to the shared shortcut dispatcher, which the native menu bar also
+  // drives. Escape cascades through the open overlays, and bare Backspace deletes the
+  // canvas selection or, when focus is in the sidebar, the open project; both stay
+  // here because they must never be registered as menu accelerators.
   function onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       // A pending confirmation sits on top of everything, so Escape cancels just it;
@@ -119,30 +82,13 @@
       showSettings.set(false)
       return
     }
-    const isCommand = event.metaKey || event.ctrlKey
-    // cmd+n opens the new-project modal from anywhere except while typing or behind
-    // another overlay.
-    if (isCommand && event.key.toLowerCase() === 'n') {
-      if (!isTyping(event.target) && !overlayOpen()) {
-        event.preventDefault()
-        openProjectModal()
+    // Bare Backspace still deletes, as an unlisted convenience alongside the menu's
+    // cmd+Backspace. It stays out of the dispatcher because it needs the focus target
+    // to choose between deleting the open project and the canvas selection.
+    if ((event.key === 'Backspace' || event.key === 'Delete') && !(event.metaKey || event.ctrlKey)) {
+      if (isTyping(event.target) || overlayOpen() || get(view) === null) {
+        return
       }
-      return
-    }
-    // cmd+f opens (or refocuses) the canvas search bar. The webview's native find is
-    // always suppressed, and the isTyping guard is deliberately skipped so pressing
-    // cmd+f inside the search input reselects the query text.
-    if (isCommand && event.key.toLowerCase() === 'f') {
-      event.preventDefault()
-      if (!overlayOpen() && get(view)) {
-        openSearch()
-      }
-      return
-    }
-    if (isTyping(event.target) || overlayOpen() || !get(view)) {
-      return
-    }
-    if (event.key === 'Backspace' || event.key === 'Delete') {
       if (inSidebar(event.target)) {
         event.preventDefault()
         void confirmAndDeleteActiveProject()
@@ -152,58 +98,19 @@
       }
       return
     }
-    // cmd+i opens the detail modal for the single selected node, or the open
-    // project's own detail modal when the canvas selection is empty, since the
-    // project card is not selectable.
-    if (isCommand && event.key.toLowerCase() === 'i') {
-      const selected = singleSelectedNode()
-      event.preventDefault()
-      if (selected) {
-        openNodeModal(selected.id)
-      } else if (get(selectedNodeIds).length === 0) {
-        openProjectDetail()
-      }
+    const identifier = shortcutForEvent(event)
+    if (!identifier) {
       return
     }
-    // cmd+e opens the edit modal for the open project when focus is in the sidebar,
-    // mirroring how Backspace there targets the project rather than the canvas.
-    if (isCommand && event.key.toLowerCase() === 'e') {
-      const openView = get(view)
-      if (inSidebar(event.target) && openView) {
-        event.preventDefault()
-        openProjectEditModal(openView.project.id)
-      }
+    // Save and find deliberately skip the isTyping guard: both are aimed at the field
+    // the user is already typing in. Find always suppresses the webview's native find,
+    // and pressing it inside the search input reselects the query text.
+    const worksWhileTyping = identifier === 'editor.save' || identifier === 'view.find'
+    if (isTyping(event.target) && !worksWhileTyping) {
       return
     }
-    const key = event.key.toLowerCase()
-    const node = singleSelectedNode()
-    if (key === 't') {
-      event.preventDefault()
-      if (event.shiftKey) {
-        openNewTaskAtCenter()
-      } else if (node && node.kind === 'task') {
-        openComposeForSelection('precursor')
-      }
-    } else if (key === 'e' && node) {
-      event.preventDefault()
-      openEditModal(node.id)
-    } else if (key === 'd' && node && ((node.kind === 'task' && node.parentId) || node.kind === 'decision')) {
-      event.preventDefault()
-      openComposeForSelection('decision')
-    } else if (key === 'p' && get(selectedNodeIds).length >= 2) {
-      event.preventDefault()
-      void createProximityGroup()
-    } else if (key === 'h') {
-      // "h" mirrors the Home button and "shift+h" the Fit button, driven through the
-      // canvas command registry because this handler sits outside the flow context.
-      event.preventDefault()
-      const commands = canvasCommands()
-      if (event.shiftKey) {
-        commands?.fitAll()
-      } else {
-        commands?.home()
-      }
-    }
+    event.preventDefault()
+    runShortcut(identifier)
   }
 </script>
 

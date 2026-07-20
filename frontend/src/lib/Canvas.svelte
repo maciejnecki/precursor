@@ -220,6 +220,7 @@
       {nodeTypes}
       {edgeTypes}
       nodesDraggable={false}
+      deleteKey={null}
       zoomOnDoubleClick={false}
       zoomOnScroll={false}
       zoomOnPinch={false}

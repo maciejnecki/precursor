@@ -1,6 +1,7 @@
 <script lang="ts">
   import CodeMirror from './CodeMirror.svelte'
   import EmojiButton from './EmojiButton.svelte'
+  import { registerEditorCommands } from './editorCommands'
   import {
     closeEditModal,
     deleteNodeById,
@@ -38,14 +39,14 @@
     }
   }
 
-  // handleKeydown lets cmd+s (or ctrl+s) save from anywhere in the modal, not just
-  // while the markdown editor holds focus, so editing a node stays keyboard-driven.
-  function handleKeydown(event: KeyboardEvent): void {
-    if ($editModalOpen && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-      event.preventDefault()
-      void save()
+  // Expose saving to the shortcut dispatcher while the modal is open, so cmd+s and
+  // the menu's Save item reach these fields from anywhere in the modal rather than
+  // only while the markdown editor holds focus.
+  $effect(() => {
+    if ($editModalOpen) {
+      return registerEditorCommands({ save: () => void save() })
     }
-  }
+  })
 
   // remove deletes the node after an in-app confirmation prompt.
   async function remove(): Promise<void> {
@@ -54,8 +55,6 @@
     }
   }
 </script>
-
-<svelte:window onkeydown={handleKeydown} />
 
 {#if $editModalOpen && node}
   <!-- The backdrop dismisses on click; keyboard users close the modal with Escape,
