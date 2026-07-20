@@ -87,7 +87,7 @@
   .codemirror-host {
     height: 100%;
     min-height: 0;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-input);
     border-radius: 6px;
     overflow: hidden;
   }

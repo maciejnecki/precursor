@@ -6,7 +6,10 @@
   /* Surfaces are translucent slate so the frosted-glass material runs through the
      whole app; the elements that use them pair these with a backdrop blur. */
   --surface-raised: rgba(51, 65, 85, 0.72);
-  --surface-input: rgba(30, 41, 59, 0.5);
+  /* Fields are the same white wash as the panels, one step brighter, so they read
+     as an inset of the surface they sit on rather than a separate slate material. */
+  --surface-input: rgba(255, 255, 255, 0.04);
+  --border-input: rgba(255, 255, 255, 0.1);
   /* The faint wash and barely-there outline shared by the canvas chain panels, the
      project card, and every modal, so panels read as one material wherever they
      appear. */
@@ -102,15 +105,16 @@ textarea {
   color: var(--text);
   background-color: var(--surface-input);
   backdrop-filter: var(--blur-control);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-input);
   border-radius: 6px;
   padding: 6px 8px;
 }
 
+/* Fields keep their resting outline when focused, matching the markdown editor,
+   which carries its border on the host element and cannot reflect focus. */
 input[type="text"]:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--accent);
 }
 
 /* Shared styling for rendered markdown bodies in node previews and the detail modal. */
@@ -181,7 +185,7 @@ textarea:focus {
 
 .markdown pre {
   background-color: var(--surface-input);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-input);
   border-radius: 6px;
   padding: 8px;
   overflow-x: auto;
