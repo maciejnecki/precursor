@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Render the application icon: an orange dancing stick figure on a slate
-background. Uses only the Python standard library. The figure is drawn at twice
+background. The geometry is a faithful copy of the design SVG (viewBox 0 0 1024
+1024, 52px round strokes, head circle at 472,230). The slate fills every pixel
+edge to edge with no transparency and no rounded corners, so macOS can mask the
+solid square into its own icon shape without a light backing plate showing
+through. Uses only the Python standard library. The artwork is drawn at twice
 the target resolution and box-downsampled so the limbs read with smooth edges."""
 
 import math
@@ -12,9 +16,14 @@ SIZE = 1024
 SUPERSAMPLE = 2
 CANVAS = SIZE * SUPERSAMPLE
 
-# Palette: slate background and orange figure.
+# Palette copied from the design: slate background and the SVG's orange, which is
+# hsl(24.6, 100%, 53.1%) resolved to sRGB.
 SLATE = (51, 65, 85)
-ORANGE = (249, 115, 22)
+ORANGE = (255, 114, 16)
+
+# Stroke radius: the SVG draws limbs at stroke-width 52, so the round strokes
+# have a radius of 26 in 1024 space.
+STROKE_RADIUS = 26
 
 
 def distance_to_segment(point_x, point_y, start_x, start_y, end_x, end_y):
@@ -58,6 +67,21 @@ def fill_circle(pixels, centre, radius):
 def scaled(point):
     """Scale a coordinate from 1024 space into the supersampled canvas."""
     return (point[0] * SUPERSAMPLE, point[1] * SUPERSAMPLE)
+
+
+def stroke(radius):
+    """Scale a stroke radius into the supersampled canvas."""
+    return radius * SUPERSAMPLE
+
+
+def draw_polyline(pixels, points, radius):
+    """Stroke a polyline as round-capped, round-joined segments, matching the
+    SVG's stroke-linecap and stroke-linejoin of round."""
+    for index in range(len(points) - 1):
+        fill_capsule(pixels, scaled(points[index]), scaled(points[index + 1]), stroke(radius))
+    # Circles at the interior joints round off the corners between segments.
+    for joint in points[1:-1]:
+        fill_circle(pixels, scaled(joint), stroke(radius))
 
 
 def downsample(pixels):
@@ -108,37 +132,22 @@ def encode_png(rgb_bytes):
 
 
 def main():
+    # Slate fills the whole canvas so the icon is opaque edge to edge.
     pixels = [SLATE] * (CANVAS * CANVAS)
 
-    # Joints of the dancing pose, in 1024 space.
-    head_centre = (440, 250)
-    head_radius = 86
-    neck = (468, 350)
-    shoulder = (480, 388)
-    hip = (556, 600)
-    limb_radius = 30
-
     # Torso.
-    fill_capsule(pixels, scaled(neck), scaled(hip), limb_radius * SUPERSAMPLE)
+    draw_polyline(pixels, [(474, 310), (556, 600)], STROKE_RADIUS)
 
     # Arms: left raised up, right thrown out — a dancing flourish.
-    fill_capsule(pixels, scaled(shoulder), scaled((322, 322)), limb_radius * SUPERSAMPLE)
-    fill_capsule(pixels, scaled((322, 322)), scaled((250, 196)), limb_radius * SUPERSAMPLE)
-    fill_capsule(pixels, scaled(shoulder), scaled((648, 430)), limb_radius * SUPERSAMPLE)
-    fill_capsule(pixels, scaled((648, 430)), scaled((724, 300)), limb_radius * SUPERSAMPLE)
+    draw_polyline(pixels, [(480, 412), (322, 322), (250, 196)], STROKE_RADIUS)
+    draw_polyline(pixels, [(480, 412), (648, 430), (724, 300)], STROKE_RADIUS)
 
     # Legs: left kicked out, right bent — mid step.
-    fill_capsule(pixels, scaled(hip), scaled((452, 762)), limb_radius * SUPERSAMPLE)
-    fill_capsule(pixels, scaled((452, 762)), scaled((372, 880)), limb_radius * SUPERSAMPLE)
-    fill_capsule(pixels, scaled(hip), scaled((684, 742)), limb_radius * SUPERSAMPLE)
-    fill_capsule(pixels, scaled((684, 742)), scaled((640, 902)), limb_radius * SUPERSAMPLE)
+    draw_polyline(pixels, [(556, 600), (452, 762), (372, 880)], STROKE_RADIUS)
+    draw_polyline(pixels, [(556, 600), (684, 742), (640, 902)], STROKE_RADIUS)
 
-    # Smooth the joints so the limbs connect without notches.
-    for joint in [shoulder, hip, (322, 322), (648, 430), (452, 762), (684, 742)]:
-        fill_circle(pixels, scaled(joint), limb_radius * SUPERSAMPLE)
-
-    # Head last so it sits cleanly over the neck.
-    fill_circle(pixels, scaled(head_centre), head_radius * SUPERSAMPLE)
+    # Head last so it sits cleanly over the torso and arms.
+    fill_circle(pixels, scaled((472, 230)), stroke(102))
 
     with open("build/appicon.png", "wb") as handle:
         handle.write(encode_png(downsample(pixels)))
