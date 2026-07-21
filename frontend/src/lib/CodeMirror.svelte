@@ -35,9 +35,13 @@
 
   // buildExtensions assembles the editor behaviour, including the save shortcut.
   function buildExtensions() {
+    // stopPropagation keeps the keystroke from also reaching the window-level
+    // shortcut dispatcher in App.svelte, which lets editor.save through the typing
+    // guard on purpose: without it both handlers fire and the save runs twice.
     const saveShortcut = keymap.of([
       {
         key: 'Mod-s',
+        stopPropagation: true,
         run: () => {
           onSave?.()
           return true
