@@ -133,7 +133,9 @@ func TestDeleteDecisionRemovesOnlyItself(test *testing.T) {
 }
 
 // TestDeleteMiddleTaskHealsChain verifies a mid-chain delete re-links the precursor
-// to the parent and discards decisions on the removed links.
+// to the parent and takes only the decisions documenting the deleted task. The
+// precursor's own decisions document its own transition, so they survive and come to
+// annotate the healed link.
 func TestDeleteMiddleTaskHealsChain(test *testing.T) {
 	graph := model.Graph{Nodes: []model.Node{
 		task("endpoint", nil),
@@ -145,14 +147,18 @@ func TestDeleteMiddleTaskHealsChain(test *testing.T) {
 	changes := DeleteNode(graph, "middle")
 
 	if len(changes.UpdatedNodes) != 1 || changes.UpdatedNodes[0].ID != "outer" {
-		test.Fatalf("expected outer to be re-linked, got %+v", changes.UpdatedNodes)
+		test.Fatalf("expected only outer to be re-linked, got %+v", changes.UpdatedNodes)
 	}
 	if changes.UpdatedNodes[0].ParentID == nil || *changes.UpdatedNodes[0].ParentID != "endpoint" {
 		test.Fatalf("expected outer's parent to become endpoint, got %+v", changes.UpdatedNodes[0].ParentID)
 	}
+
 	deleted := idSet(changes.DeletedNodeIDs)
-	if !deleted["middle"] || !deleted["dMiddle"] || !deleted["dOuter"] {
-		test.Fatalf("expected middle and decisions on removed links deleted, got %+v", changes.DeletedNodeIDs)
+	if !deleted["middle"] || !deleted["dMiddle"] {
+		test.Fatalf("expected middle and its own decision deleted, got %+v", changes.DeletedNodeIDs)
+	}
+	if deleted["dOuter"] {
+		test.Fatalf("expected the precursor's decision to survive, got %+v", changes.DeletedNodeIDs)
 	}
 }
 

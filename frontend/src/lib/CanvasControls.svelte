@@ -2,44 +2,54 @@
   import { onMount } from 'svelte'
   import { Panel, useSvelteFlow } from '@xyflow/svelte'
   import { registerCanvasCommands } from './canvasCommands'
+  import { computeChainAreas, projectCardId } from './chains'
   import { view } from './store'
 
-  // Navigation controls pinned to the bottom-right of the canvas: Home recentres on
-  // the first chain's endpoint; Zoom to fit frames every chain. Rendered inside
-  // <SvelteFlow> so the flow hooks have their context.
+  // Navigation controls pinned to the bottom-right of the canvas: Home zooms in on
+  // the project card; Zoom to fit frames the task and decision cards. Rendered
+  // inside <SvelteFlow> so the flow hooks have their context.
   const { fitView, setCenter, getZoom, getNode } = useSvelteFlow()
 
   // How long the view animates when a control is used.
   const transitionMs = 300
 
-  // centerOnNode pans the view to the given node's centre, keeping the current zoom
-  // level. Node positions are top-left corners, so the measured card size (with a
-  // fallback for cards not yet measured) shifts the target to the middle.
-  function centerOnNode(identifier: string): void {
-    const target = ($view?.nodes ?? []).find((node) => node.id === identifier)
+  // The zoom level Home settles on, close enough to read the project card without
+  // filling the whole canvas with it.
+  const homeZoom = 1
+
+  // The closest Fit is allowed to zoom, so a small project keeps its surroundings in
+  // view instead of being blown up to fill the canvas.
+  const fitMaxZoom = 1
+
+  // centerOnNode pans the view to the given node's centre. The zoom level is kept
+  // unless an explicit one is given. Node positions are top-left corners, so the
+  // measured card size (with a fallback for cards not yet measured) shifts the
+  // target to the middle.
+  function centerOnNode(identifier: string, zoom?: number): void {
+    const target = getNode(identifier)
     if (!target) {
       return
     }
-    const measured = getNode(target.id)?.measured
-    const centreX = target.x + (measured?.width ?? 200) / 2
-    const centreY = target.y + (measured?.height ?? 60) / 2
-    void setCenter(centreX, centreY, { zoom: getZoom(), duration: transitionMs })
+    const centreX = target.position.x + (target.measured?.width ?? 200) / 2
+    const centreY = target.position.y + (target.measured?.height ?? 60) / 2
+    void setCenter(centreX, centreY, { zoom: zoom ?? getZoom(), duration: transitionMs })
   }
 
-  // home recentres the view on the first endpoint (the leftmost chain), keeping the
-  // current zoom level.
+  // home zooms in on the project card and centres it.
   function home(): void {
-    const endpoints = ($view?.nodes ?? []).filter((node) => node.kind === 'task' && !node.parentId)
-    if (endpoints.length === 0) {
+    centerOnNode(projectCardId, homeZoom)
+  }
+
+  // fit frames the chain background panels, deliberately excluding the project card
+  // so the graph itself fills the view. Framing the panels rather than the bare cards
+  // keeps the chains' own padding, and the zoom cap stops a project with a single
+  // short chain from filling the canvas.
+  function fit(): void {
+    const panels = computeChainAreas($view?.nodes ?? []).map((area) => ({ id: area.id }))
+    if (panels.length === 0) {
       return
     }
-    const first = endpoints.reduce((leftmost, candidate) => (candidate.x < leftmost.x ? candidate : leftmost))
-    centerOnNode(first.id)
-  }
-
-  // fit frames all chains within the view.
-  function fit(): void {
-    void fitView({ duration: transitionMs, padding: 0.2 })
+    void fitView({ duration: transitionMs, padding: 0.2, maxZoom: fitMaxZoom, nodes: panels })
   }
 
   // Register the viewport commands so the global shortcuts (h, shift+h) and the

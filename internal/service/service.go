@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"precursor/internal/config"
@@ -40,11 +41,91 @@ func New(baseDirectory string) (*Service, error) {
 	return &Service{store: store, settings: settings}, nil
 }
 
-// ListProjects returns the metadata of every stored project.
+// ListProjects returns the metadata of every stored project in the user's saved
+// sidebar order.
 func (service *Service) ListProjects() ([]model.Project, error) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	return service.store.ListProjects()
+	return service.orderedProjects()
+}
+
+// Sidebar returns the ordered project list together with the stored groups, which
+// is everything the sidebar needs to draw itself.
+func (service *Service) Sidebar() (SidebarState, error) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	return service.sidebarState()
+}
+
+// SaveSidebar stores a new project order and set of groups, and returns the
+// resulting state so the caller can apply it without a second round trip. Both are
+// normalised first, so identifiers of deleted projects and groups left empty by a
+// drag are dropped rather than stored.
+func (service *Service) SaveSidebar(order []string, groups []config.ProjectGroup) (SidebarState, error) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	projects, listError := service.store.ListProjects()
+	if listError != nil {
+		return SidebarState{}, listError
+	}
+	known := make(map[string]bool, len(projects))
+	for _, project := range projects {
+		known[project.ID] = true
+	}
+	cleanOrder, cleanGroups := normaliseSidebar(order, groups, known)
+	saveError := service.settings.SetSidebar(cleanOrder, cleanGroups)
+	if saveError != nil {
+		return SidebarState{}, saveError
+	}
+	return service.sidebarState()
+}
+
+// sidebarState assembles the ordered projects and the stored groups. The caller
+// holds the mutex.
+func (service *Service) sidebarState() (SidebarState, error) {
+	projects, listError := service.orderedProjects()
+	if listError != nil {
+		return SidebarState{}, listError
+	}
+	_, groups, settingsError := service.settings.Sidebar()
+	if settingsError != nil {
+		return SidebarState{}, settingsError
+	}
+	if groups == nil {
+		groups = []config.ProjectGroup{}
+	}
+	return SidebarState{Projects: projects, Groups: groups}, nil
+}
+
+// orderedProjects lists the stored projects sorted by the saved sidebar order.
+// Projects the order does not mention — newly created or imported ones — keep the
+// store's name ordering and follow the ones it does. The caller holds the mutex.
+func (service *Service) orderedProjects() ([]model.Project, error) {
+	projects, listError := service.store.ListProjects()
+	if listError != nil {
+		return nil, listError
+	}
+	order, _, orderError := service.settings.Sidebar()
+	if orderError != nil {
+		return nil, orderError
+	}
+
+	positions := make(map[string]int, len(order))
+	for position, identifier := range order {
+		positions[identifier] = position
+	}
+	sort.SliceStable(projects, func(first, second int) bool {
+		firstPosition, firstKnown := positions[projects[first].ID]
+		secondPosition, secondKnown := positions[projects[second].ID]
+		if firstKnown != secondKnown {
+			return firstKnown
+		}
+		if !firstKnown {
+			return false
+		}
+		return firstPosition < secondPosition
+	})
+	return projects, nil
 }
 
 // CreateProject creates a new empty project and returns its metadata.

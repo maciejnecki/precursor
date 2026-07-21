@@ -26,6 +26,11 @@ const chainGap = columnSpacing - chainWidth
 export const projectCardWidth = chainWidth * 2 + chainGap
 export const projectCardHeight = 340
 
+// The canvas id of the project card. It is a synthetic node rather than a graph
+// node, so the id is fixed here and shared by the renderer and the viewport
+// controls that need to target it.
+export const projectCardId = 'project-card'
+
 // The card sits one doubled chain gap below the baseline the chain panels end on.
 const projectCardGap = chainGap * 2
 

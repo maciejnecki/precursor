@@ -7,12 +7,16 @@ export type Project = model.Project
 export type ProjectView = service.ProjectView
 export type NodeView = service.NodeView
 export type Settings = config.Settings
+export type ProjectGroup = config.ProjectGroup
+export type SidebarState = service.SidebarState
 
 export const api = {
   listProjects: bindings.ListProjects,
   createProject: bindings.CreateProject,
   updateProject: bindings.UpdateProject,
   deleteProject: bindings.DeleteProject,
+  sidebar: bindings.Sidebar,
+  saveSidebar: bindings.SaveSidebar,
   openProject: bindings.OpenProject,
   createTask: bindings.CreateTask,
   createPrecursor: bindings.CreatePrecursor,

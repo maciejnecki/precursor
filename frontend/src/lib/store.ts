@@ -2,12 +2,15 @@
 // Svelte stores so any component can subscribe; actions wrap the API and keep the
 // stores consistent after every backend call.
 import { derived, get, writable } from 'svelte/store'
-import { api, type Project, type ProjectView, type Settings } from './api'
+import { api, type Project, type ProjectGroup, type ProjectView, type Settings, type SidebarState } from './api'
 import { canvasCommands } from './canvasCommands'
 import type { EditorMode } from './types'
 
-// projects holds the metadata of every project for the sidebar.
+// projects holds the metadata of every project for the sidebar, in stored order.
 export const projects = writable<Project[]>([])
+
+// projectGroups holds the sidebar's project groups, in the order they are stored.
+export const projectGroups = writable<ProjectGroup[]>([])
 
 // view holds the currently open project's render-ready view, or null when none.
 export const view = writable<ProjectView | null>(null)
@@ -223,15 +226,43 @@ async function run<T>(action: () => Promise<T>): Promise<T | undefined> {
 // starts.
 export async function loadInitial(): Promise<void> {
   await run(async () => {
-    projects.set(await api.listProjects())
+    applySidebar(await api.sidebar())
     settings.set(await api.getSettings())
     appVersion.set(await api.version())
   })
 }
 
-// refreshProjects reloads the project list, used after create, delete, or import.
+// applySidebar stores a sidebar state returned by the backend.
+function applySidebar(state: SidebarState): void {
+  projects.set(state.projects)
+  projectGroups.set(state.groups)
+}
+
+// refreshProjects reloads the sidebar, used after create, delete, or import. The
+// backend drops any group membership a deleted project left behind.
 async function refreshProjects(): Promise<void> {
-  projects.set(await api.listProjects())
+  applySidebar(await api.sidebar())
+}
+
+// saveSidebar persists a new project order and set of groups. Both are applied
+// optimistically so a drop lands without a flicker, then replaced by what the
+// backend stored, or rolled back when the write fails.
+export async function saveSidebar(order: string[], groups: ProjectGroup[]): Promise<void> {
+  const previousProjects = get(projects)
+  const previousGroups = get(projectGroups)
+  const byId = new Map(previousProjects.map((project) => [project.id, project]))
+  const reordered = order
+    .map((identifier) => byId.get(identifier))
+    .filter((project): project is Project => project !== undefined)
+  projects.set(reordered)
+  projectGroups.set(groups)
+  const stored = await run(() => api.saveSidebar(order, groups))
+  if (stored) {
+    applySidebar(stored)
+  } else {
+    projects.set(previousProjects)
+    projectGroups.set(previousGroups)
+  }
 }
 
 // applyView stores a new view and clears any selection or open modal whose node has

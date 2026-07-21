@@ -44,7 +44,11 @@ export function SaveCompletedMarkdown(arg1:string):Promise<string>;
 
 export function SaveSettings(arg1:config.Settings):Promise<void>;
 
+export function SaveSidebar(arg1:Array<string>,arg2:Array<config.ProjectGroup>):Promise<service.SidebarState>;
+
 export function SetDecisionsCollapsed(arg1:string,arg2:boolean):Promise<service.ProjectView>;
+
+export function Sidebar():Promise<service.SidebarState>;
 
 export function Undo():Promise<service.ProjectView>;
 

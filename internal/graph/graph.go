@@ -191,9 +191,9 @@ func (changes *ChangeSet) deleteTaskWithDecisions(nodes []model.Node, taskID str
 // DeleteNode computes the changes required to delete the target node. Deleting a
 // decision simply removes it. Deleting an endpoint removes its whole chain: every
 // precursor above it, all their decisions, and every proximity bond that referenced
-// it. Deleting a task from within a chain instead heals it: the task's precursor
-// re-links to the task's parent, decisions on the removed links are discarded, and
-// proximity bonds that referenced the removed endpoint are repointed to the new
+// it. Deleting a task from within a chain instead heals it: the task goes with the
+// decisions documenting it and nothing else, its precursor re-links to its parent,
+// and proximity bonds that referenced the removed endpoint are repointed to the new
 // endpoint.
 func DeleteNode(projectGraph model.Graph, targetID string) ChangeSet {
 	nodes := projectGraph.Nodes
@@ -223,13 +223,11 @@ func DeleteNode(projectGraph model.Graph, targetID string) ChangeSet {
 
 	precursor, hasPrecursor := PrecursorOf(nodes, targetID)
 	if hasPrecursor {
-		// Heal the chain by re-linking the precursor to the deleted task's parent,
-		// and discard the decisions that annotated the now-removed precursor link.
+		// Heal the chain by re-linking the precursor to the deleted task's parent. The
+		// precursor's own decisions document its transition rather than the deleted
+		// task's, so they stay with it and simply come to annotate the healed link.
 		precursor.ParentID = target.ParentID
 		changes.UpdatedNodes = append(changes.UpdatedNodes, precursor)
-		for _, decision := range DecisionsFor(nodes, precursor.ID) {
-			changes.DeletedNodeIDs = append(changes.DeletedNodeIDs, decision.ID)
-		}
 	}
 
 	changes.applyBondHealing(projectGraph.ProximityBonds, target, precursor, hasPrecursor)

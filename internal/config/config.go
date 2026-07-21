@@ -39,6 +39,22 @@ type Settings struct {
 	// EndpointColour outlines a pending chain-root task so an incomplete chain
 	// stands out until every node in it resolves.
 	EndpointColour string `toml:"endpointColour" json:"endpointColour"`
+	// ProjectOrder lists project identifiers in the order the sidebar shows them.
+	// It is a stored preference rather than part of the settings the UI edits, so
+	// it is kept out of the JSON the frontend exchanges.
+	ProjectOrder []string `toml:"projectOrder" json:"-"`
+	// ProjectGroups are the sidebar's named bands of projects, also a stored
+	// preference rather than a value the settings UI edits.
+	ProjectGroups []ProjectGroup `toml:"projectGroups" json:"-"`
+}
+
+// ProjectGroup is a named, collapsible band of projects in the sidebar. A project
+// belongs to at most one group, and groups do not nest.
+type ProjectGroup struct {
+	ID        string   `toml:"id" json:"id"`
+	Name      string   `toml:"name" json:"name"`
+	Collapsed bool     `toml:"collapsed" json:"collapsed"`
+	Members   []string `toml:"members" json:"members"`
 }
 
 // DefaultSettings returns the shipped settings using the Classic palette.
@@ -113,8 +129,55 @@ func (manager *Manager) Load() (Settings, error) {
 	return withFallbacks(settings), nil
 }
 
-// Save writes the settings to the file, creating the parent directory if needed.
+// storedSidebar reads just the sidebar preferences straight from the file, without
+// the default-writing Load performs, so Save can consult them while writing.
+func (manager *Manager) storedSidebar() ([]string, []ProjectGroup) {
+	data, readError := os.ReadFile(manager.path)
+	if readError != nil {
+		return nil, nil
+	}
+	var stored Settings
+	decodeError := toml.Unmarshal(data, &stored)
+	if decodeError != nil {
+		return nil, nil
+	}
+	return stored.ProjectOrder, stored.ProjectGroups
+}
+
+// Sidebar returns the stored order of project identifiers and the stored groups.
+func (manager *Manager) Sidebar() ([]string, []ProjectGroup, error) {
+	settings, loadError := manager.Load()
+	if loadError != nil {
+		return nil, nil, loadError
+	}
+	return settings.ProjectOrder, settings.ProjectGroups, nil
+}
+
+// SetSidebar stores the sidebar order and groups, leaving every other setting as it
+// is. Both are written as given, so an empty list does clear them.
+func (manager *Manager) SetSidebar(identifiers []string, groups []ProjectGroup) error {
+	settings, loadError := manager.Load()
+	if loadError != nil {
+		return loadError
+	}
+	settings.ProjectOrder = identifiers
+	settings.ProjectGroups = groups
+	return manager.writeSettings(settings)
+}
+
+// Save writes the settings to the file. The stored sidebar preferences are carried
+// over when the incoming settings omit them, since the settings the UI edits do not
+// include them; SetSidebar writes them directly and so can clear them.
 func (manager *Manager) Save(settings Settings) error {
+	if len(settings.ProjectOrder) == 0 && len(settings.ProjectGroups) == 0 {
+		settings.ProjectOrder, settings.ProjectGroups = manager.storedSidebar()
+	}
+	return manager.writeSettings(settings)
+}
+
+// writeSettings encodes the settings to the file, creating the parent directory if
+// needed.
+func (manager *Manager) writeSettings(settings Settings) error {
 	directoryError := os.MkdirAll(filepath.Dir(manager.path), 0o755)
 	if directoryError != nil {
 		return fmt.Errorf("create config directory: %w", directoryError)

@@ -23,6 +23,7 @@
   import {
     computeChainAreas,
     projectCardHeight,
+    projectCardId,
     projectCardPosition,
     projectCardWidth,
     projectCompletion
@@ -101,7 +102,7 @@
     $view
       ? [
           {
-            id: 'project-card',
+            id: projectCardId,
             type: 'projectCard',
             position: projectCardPosition(chainAreas),
             draggable: false,
@@ -246,7 +247,7 @@
     </SvelteFlow>
 
     {#if isEmpty}
-      <div class="hint">Click anywhere on the canvas to create your first task.</div>
+      <div class="hint">Press <span class="keys">⇧⌘T</span> to create your first task.</div>
     {/if}
   {:else}
     <div class="hint">Select or create a project from the sidebar to begin.</div>
@@ -281,6 +282,17 @@
     pointer-events: none;
     text-align: center;
     max-width: 70%;
+  }
+
+  /* The key combination reads as a key cap inside the hint sentence. */
+  .hint .keys {
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: var(--text);
+    font-weight: 600;
+    padding: 2px 6px;
+    white-space: nowrap;
   }
 
   :global(.svelte-flow__handle) {

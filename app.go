@@ -81,6 +81,24 @@ func (app *App) ListProjects() ([]model.Project, error) {
 	return current.ListProjects()
 }
 
+// Sidebar returns the ordered projects and their groups.
+func (app *App) Sidebar() (service.SidebarState, error) {
+	current, readyError := app.ready()
+	if readyError != nil {
+		return service.SidebarState{}, readyError
+	}
+	return current.Sidebar()
+}
+
+// SaveSidebar stores the project order and groups, returning the resulting state.
+func (app *App) SaveSidebar(order []string, groups []config.ProjectGroup) (service.SidebarState, error) {
+	current, readyError := app.ready()
+	if readyError != nil {
+		return service.SidebarState{}, readyError
+	}
+	return current.SaveSidebar(order, groups)
+}
+
 // CreateProject creates a new project.
 func (app *App) CreateProject(name, description, colour, icon string) (model.Project, error) {
 	current, readyError := app.ready()
