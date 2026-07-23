@@ -132,13 +132,6 @@
 
 <svelte:window onkeydown={onKeydown} onclick={openLinksExternally} />
 
-<!-- A solid strip across the top acts as the window drag handle and keeps the canvas
-     from reaching the very top; the native traffic lights render above it. The app
-     name sits centred in it. -->
-<div class="titlebar" style="--wails-draggable:drag">
-  <span class="app-name">{$view ? `Precursor - ${$view.project.name || 'Untitled'}` : 'Precursor'}</span>
-</div>
-
 <div class="layout">
   <Sidebar />
   <div class="main">
@@ -163,30 +156,9 @@
 {/if}
 
 <style>
-  .titlebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 28px;
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--slate-veil);
-    backdrop-filter: blur(24px) saturate(1.3);
-  }
-
-  .app-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
   .layout {
     display: flex;
-    height: calc(100vh - 28px);
-    margin-top: 28px;
+    height: 100vh;
   }
 
   .main {

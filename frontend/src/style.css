@@ -18,7 +18,10 @@
   --border: #475569;
   --text: #e2e8f0;
   --text-muted: #94a3b8;
-  --accent: #38bdf8;
+  --accent: #e1752d;
+  /* A deepened accent for filled surfaces that carry white text, where the bright
+     accent would not hold enough contrast. */
+  --accent-strong: #b35d0f;
   /* Translucent slate tint shared by the sidebar, titlebar, and floating popups so
      they read as the same material over the window's vibrancy. */
   --slate-veil: rgba(51, 65, 85, 0.6);

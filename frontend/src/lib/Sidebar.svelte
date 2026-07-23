@@ -266,20 +266,19 @@
 <svelte:window onkeydowncapture={onEscapeCapture} />
 
 <aside class="sidebar" class:collapsed={$sidebarCollapsed}>
+  <!-- An empty strip that both drags the window and keeps the controls below clear of
+       the native traffic lights, which render over this corner. -->
+  <div class="drag-strip" style="--wails-draggable:drag"></div>
+
   <header>
-    <button type="button" class="collapse" onclick={toggleCollapse} title={$sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-      {$sidebarCollapsed ? '▶' : '◀'}
-    </button>
-    {#if !$sidebarCollapsed}
-      <!-- Grouping needs at least two projects, so the button only appears once a
-           shift-click has extended the selection past the open project. -->
-      {#if selectedIds.length > 1}
-        <button type="button" class="group-action" onclick={groupSelected} title="Group selected projects">
-          Group {selectedIds.length}
-        </button>
-      {/if}
-      <button type="button" class="add" onclick={openProjectModal} title="New project">+</button>
+    <!-- Grouping needs at least two projects, so the button only appears once a
+         shift-click has extended the selection past the open project. -->
+    {#if !$sidebarCollapsed && selectedIds.length > 1}
+      <button type="button" class="group-action" onclick={groupSelected} title="Group selected projects">
+        Group {selectedIds.length}
+      </button>
     {/if}
+    <button type="button" class="add" onclick={openProjectModal} title="New project">+</button>
   </header>
 
   <div class="projects">
@@ -359,13 +358,19 @@
     {/if}
   </div>
 
-  {#if !$sidebarCollapsed}
-    <footer>
-      <button type="button" class="settings" onclick={() => showSettings.set(true)} title="Settings">
-        Settings
-      </button>
-    </footer>
-  {/if}
+  <!-- The footer carries the two chrome controls, sat where the account row lives in
+       a native sidebar: Settings takes the width, Collapse tucks beside it. -->
+  <footer>
+    <button type="button" class="settings" onclick={() => showSettings.set(true)} title="Settings">
+      <span class="foot-icon">⚙</span>
+      {#if !$sidebarCollapsed}
+        <span>Settings</span>
+      {/if}
+    </button>
+    <button type="button" class="collapse" onclick={toggleCollapse} title={$sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+      {$sidebarCollapsed ? '▶' : '◀'}
+    </button>
+  </footer>
 </aside>
 
 <!-- One project row, used both at the top level and inside a group. -->
@@ -437,8 +442,16 @@
   }
 
   .sidebar.collapsed {
-    width: 60px;
+    /* Kept at least as wide as the native traffic lights so the rightmost button never
+       spills onto the canvas beneath them. */
+    width: 78px;
     padding: 12px 8px;
+  }
+
+  /* Clears the traffic lights and gives a comfortable grab area for moving the window. */
+  .drag-strip {
+    height: 22px;
+    flex: none;
   }
 
   header {
@@ -468,6 +481,11 @@
     font-size: 18px;
     line-height: 1;
     padding: 2px 10px;
+  }
+
+  .sidebar.collapsed .add {
+    /* Centred in the rail so it lines up with the stacked footer controls. */
+    margin: 0 auto;
   }
 
   /* With a group button present, only the first of the two needs the auto margin. */
@@ -553,8 +571,14 @@
     opacity: 0.4;
   }
 
-  .project.active .open {
-    border-color: var(--accent);
+  /* The open project reads as a filled accent pill, the one loud row in the list. It
+     uses the deepened accent so its white label stays legible. */
+  .project.active .open,
+  .project.active .open:hover {
+    background-color: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: #ffffff;
+    font-weight: 600;
   }
 
   /* A shift-clicked project waiting to be grouped. */
@@ -568,8 +592,29 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    padding: 6px 8px;
     text-align: left;
     overflow: hidden;
+    /* Flat rows carry no button chrome; only a faint wash on hover, the way a native
+       sidebar list reads. */
+    background-color: transparent;
+    border-color: transparent;
+  }
+
+  .open:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: transparent;
+  }
+
+  /* A project sitting on its own carries the same faint wash a group panel lends its
+     members, so a row reads identically whether or not it is in a group. Grouped rows
+     stay transparent and take the wash from the panel behind them. */
+  .projects > .project:not(.active):not(.picked) > .open {
+    background-color: var(--surface-panel);
+  }
+
+  .projects > .project:not(.active):not(.picked) > .open:hover {
+    background-color: rgba(255, 255, 255, 0.09);
   }
 
   .sidebar.collapsed .open {
@@ -599,16 +644,32 @@
   }
 
   footer {
+    display: flex;
+    gap: 6px;
     border-top: 1px solid var(--border);
-    padding-top: 8px;
+    padding-top: 10px;
+  }
+
+  /* The narrow rail stacks the two controls so each stays a full-width icon. */
+  .sidebar.collapsed footer {
+    flex-direction: column;
   }
 
   .settings {
-    width: 100%;
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+  }
+
+  .sidebar.collapsed .settings {
+    flex: none;
+  }
+
+  .foot-icon {
+    font-size: 18px;
+    line-height: 1;
   }
 
   .context-backdrop {

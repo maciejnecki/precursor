@@ -260,10 +260,8 @@
     height: 100%;
     /* Translucent black so the window vibrancy reads through as a dark canvas. */
     background-color: rgba(0, 0, 0, 0.55);
-    /* Soften the top edge where the canvas meets the sidebar so the corner is not
-       cut off sharply; the radius matches the window's. The bottom-left stays square
-       so it sits flush in the window corner. */
-    border-top-left-radius: var(--radius);
+    /* Square on every corner so the canvas runs flush to the window edges now that it
+       reaches the top. */
     overflow: hidden;
   }
 
