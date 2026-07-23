@@ -11,7 +11,7 @@
   import ProjectModal from './lib/ProjectModal.svelte'
   import ConfirmDialog from './lib/ConfirmDialog.svelte'
   import { overlayOpen, runShortcut, shortcutForEvent, type ShortcutId } from './lib/shortcuts'
-  import { EventsOn } from '../wailsjs/runtime/runtime'
+  import { BrowserOpenURL, EventsOn } from '../wailsjs/runtime/runtime'
   import {
     closeEditModal,
     closeEditor,
@@ -37,6 +37,22 @@
     void loadInitial()
     return EventsOn('menu:action', (identifier: ShortcutId) => runShortcut(identifier))
   })
+
+  // openLinksExternally routes clicks on rendered markdown links to the system
+  // browser. The only anchors in the app come from markdown bodies, and letting the
+  // webview follow one would navigate the whole window away from the app UI, so any
+  // web or mail link is opened outside instead.
+  function openLinksExternally(event: MouseEvent): void {
+    const anchor = (event.target as HTMLElement | null)?.closest('a')
+    if (!anchor) {
+      return
+    }
+    const href = anchor.href
+    if (/^(https?|mailto):/i.test(href)) {
+      event.preventDefault()
+      BrowserOpenURL(href)
+    }
+  }
 
   // isTyping reports whether keystrokes are going into a text field, so the canvas
   // shortcuts do not fire while the user is writing.
@@ -114,7 +130,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window onkeydown={onKeydown} onclick={openLinksExternally} />
 
 <!-- A solid strip across the top acts as the window drag handle and keeps the canvas
      from reaching the very top; the native traffic lights render above it. The app

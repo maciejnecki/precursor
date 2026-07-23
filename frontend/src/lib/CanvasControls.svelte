@@ -2,13 +2,14 @@
   import { onMount } from 'svelte'
   import { Panel, useSvelteFlow } from '@xyflow/svelte'
   import { registerCanvasCommands } from './canvasCommands'
+  import type { ChainArea } from './chains'
   import { computeChainAreas, projectCardHeight, projectCardId, projectCardWidth } from './chains'
   import { view } from './store'
 
   // Navigation controls pinned to the bottom-right of the canvas: Home zooms in on
   // the project card; Zoom to fit frames the task and decision cards. Rendered
   // inside <SvelteFlow> so the flow hooks have their context.
-  const { fitView, setCenter, getZoom, getNode } = useSvelteFlow()
+  const { fitView, setCenter, getZoom, getNode, screenToFlowPosition } = useSvelteFlow()
 
   // How long the view animates when a control is used.
   const transitionMs = 300
@@ -66,6 +67,55 @@
     void fitView({ duration: durationMs, padding: 0.2, maxZoom: fitMaxZoom, nodes: panels })
   }
 
+  // orderedChainAreas returns the open project's chains ordered left-to-right, which
+  // is the order chain stepping walks through them.
+  function orderedChainAreas(): ChainArea[] {
+    return computeChainAreas($view?.nodes ?? []).sort((first, second) => first.x - second.x)
+  }
+
+  // nearestChainIndex returns the index of the chain whose centre is closest to the
+  // current viewport centre, so the first step anchors on what the user is looking at.
+  function nearestChainIndex(areas: ChainArea[]): number {
+    const pane = document.querySelector('.svelte-flow')
+    if (!pane) {
+      return 0
+    }
+    const rect = pane.getBoundingClientRect()
+    const centre = screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+    let best = 0
+    let bestDistance = Infinity
+    areas.forEach((area, index) => {
+      const distance = Math.abs(area.x + area.width / 2 - centre.x)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        best = index
+      }
+    })
+    return best
+  }
+
+  // The chain the last step framed, or null before the first step of the open project.
+  // Plain state rather than $state: nothing renders from it; it only remembers where
+  // stepping is so the next step moves one chain from here.
+  let focusedChainIndex: number | null = null
+
+  // stepChain frames one chain at a time. The first step of a project anchors on the
+  // chain nearest the current view; later steps move one chain right (delta > 0) or
+  // left (delta < 0), clamping at the ends. Framing reuses Fit's recipe on a single
+  // chain panel so the chain fills the view the same way the whole project does.
+  function stepChain(delta: number): void {
+    const areas = orderedChainAreas()
+    if (areas.length === 0) {
+      return
+    }
+    if (focusedChainIndex === null) {
+      focusedChainIndex = nearestChainIndex(areas)
+    } else {
+      focusedChainIndex = Math.min(areas.length - 1, Math.max(0, focusedChainIndex + delta))
+    }
+    void fitView({ duration: transitionMs, padding: 0.2, maxZoom: fitMaxZoom, nodes: [{ id: areas[focusedChainIndex].id }] })
+  }
+
   // How many frames the automatic framing waits for the flow to register the nodes of
   // a newly opened project. They normally appear on the first or second.
   const framingFrameBudget = 10
@@ -103,6 +153,9 @@
       return
     }
     framedProjectId = openProjectId
+    // A new project re-anchors chain stepping, so the first step frames the chain
+    // nearest the view rather than resuming the previous project's position.
+    focusedChainIndex = null
     snapToDefaultView(framingFrameBudget)
   })
 
@@ -110,7 +163,7 @@
   // search bar's match cycling can drive the canvas from outside the flow context.
   // The returned unregister runs on unmount, making the shortcuts safe no-ops when
   // no project is open.
-  onMount(() => registerCanvasCommands({ home, fitAll: fit, centerOnNode }))
+  onMount(() => registerCanvasCommands({ home, fitAll: fit, centerOnNode, stepChain }))
 </script>
 
 <Panel position="bottom-right">

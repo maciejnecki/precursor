@@ -104,6 +104,8 @@ func buildAppMenu(app *App) *menu.Menu {
 	addActions(viewMenu, app, []menuAction{
 		{"view.home", "Home", keys.CmdOrCtrl("0")},
 		{"view.fit", "Fit All", keys.Combo("0", keys.CmdOrCtrlKey, keys.ShiftKey)},
+		{"view.chainPrev", "Previous Chain", keys.CmdOrCtrl("8")},
+		{"view.chainNext", "Next Chain", keys.CmdOrCtrl("9")},
 		{"view.find", "Find on Canvas", keys.CmdOrCtrl("f")},
 	})
 	// Escape is shown for discoverability but never registered: as a bare accelerator

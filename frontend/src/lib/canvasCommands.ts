@@ -11,6 +11,9 @@ export type CanvasCommands = {
   home(): void
   fitAll(): void
   centerOnNode(identifier: string): void
+  // stepChain frames one chain at a time, stepping right (delta > 0) or left
+  // (delta < 0) through the chains ordered left-to-right.
+  stepChain(delta: number): void
 }
 
 // registry holds the currently mounted canvas's commands, or null when no project

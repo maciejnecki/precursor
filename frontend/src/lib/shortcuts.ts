@@ -50,6 +50,8 @@ export type ShortcutId =
   | 'node.delete'
   | 'view.home'
   | 'view.fit'
+  | 'view.chainPrev'
+  | 'view.chainNext'
   | 'view.find'
   | 'edit.undo'
   | 'edit.redo'
@@ -155,6 +157,14 @@ export function runShortcut(identifier: ShortcutId): void {
     case 'view.fit':
       canvasCommands()?.fitAll()
       break
+    // Chain stepping walks one chain at a time: previous frames the chain to the
+    // left, next the chain to the right, clamping at the ends.
+    case 'view.chainPrev':
+      canvasCommands()?.stepChain(-1)
+      break
+    case 'view.chainNext':
+      canvasCommands()?.stepChain(1)
+      break
     case 'view.find':
       openSearch()
       break
@@ -220,6 +230,10 @@ export function shortcutForEvent(event: KeyboardEvent): ShortcutId | null {
       return 'node.delete'
     case '0':
       return 'view.home'
+    case '8':
+      return 'view.chainPrev'
+    case '9':
+      return 'view.chainNext'
     case 'f':
       return 'view.find'
     case 'z':
