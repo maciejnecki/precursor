@@ -46,6 +46,10 @@ type Settings struct {
 	// ProjectGroups are the sidebar's named bands of projects, also a stored
 	// preference rather than a value the settings UI edits.
 	ProjectGroups []ProjectGroup `toml:"projectGroups" json:"-"`
+	// LastProject is the identifier of the project that was open most recently, so
+	// the app can reopen it on launch. Another stored preference the settings UI
+	// does not edit.
+	LastProject string `toml:"lastProject" json:"-"`
 }
 
 // ProjectGroup is a named, collapsible band of projects in the sidebar. A project
@@ -129,19 +133,20 @@ func (manager *Manager) Load() (Settings, error) {
 	return withFallbacks(settings), nil
 }
 
-// storedSidebar reads just the sidebar preferences straight from the file, without
-// the default-writing Load performs, so Save can consult them while writing.
-func (manager *Manager) storedSidebar() ([]string, []ProjectGroup) {
+// storedPreferences reads the settings straight from the file, without the
+// default-writing Load performs, so Save can consult the stored preferences the UI
+// does not send back while writing. A missing or unreadable file yields zero values.
+func (manager *Manager) storedPreferences() Settings {
 	data, readError := os.ReadFile(manager.path)
 	if readError != nil {
-		return nil, nil
+		return Settings{}
 	}
 	var stored Settings
 	decodeError := toml.Unmarshal(data, &stored)
 	if decodeError != nil {
-		return nil, nil
+		return Settings{}
 	}
-	return stored.ProjectOrder, stored.ProjectGroups
+	return stored
 }
 
 // Sidebar returns the stored order of project identifiers and the stored groups.
@@ -165,12 +170,37 @@ func (manager *Manager) SetSidebar(identifiers []string, groups []ProjectGroup) 
 	return manager.writeSettings(settings)
 }
 
-// Save writes the settings to the file. The stored sidebar preferences are carried
-// over when the incoming settings omit them, since the settings the UI edits do not
-// include them; SetSidebar writes them directly and so can clear them.
+// LastProject returns the identifier of the project that was open most recently, or
+// an empty string when none was recorded.
+func (manager *Manager) LastProject() (string, error) {
+	settings, loadError := manager.Load()
+	if loadError != nil {
+		return "", loadError
+	}
+	return settings.LastProject, nil
+}
+
+// SetLastProject records the project that is now open, leaving every other setting
+// as it is. An empty identifier clears the record.
+func (manager *Manager) SetLastProject(identifier string) error {
+	settings, loadError := manager.Load()
+	if loadError != nil {
+		return loadError
+	}
+	settings.LastProject = identifier
+	return manager.writeSettings(settings)
+}
+
+// Save writes the settings to the file. The stored preferences the settings UI does
+// not edit are carried over when the incoming settings omit them; SetSidebar and
+// SetLastProject write them directly and so can clear them.
 func (manager *Manager) Save(settings Settings) error {
+	stored := manager.storedPreferences()
 	if len(settings.ProjectOrder) == 0 && len(settings.ProjectGroups) == 0 {
-		settings.ProjectOrder, settings.ProjectGroups = manager.storedSidebar()
+		settings.ProjectOrder, settings.ProjectGroups = stored.ProjectOrder, stored.ProjectGroups
+	}
+	if settings.LastProject == "" {
+		settings.LastProject = stored.LastProject
 	}
 	return manager.writeSettings(settings)
 }

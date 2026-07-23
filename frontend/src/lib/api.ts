@@ -18,6 +18,7 @@ export const api = {
   sidebar: bindings.Sidebar,
   saveSidebar: bindings.SaveSidebar,
   openProject: bindings.OpenProject,
+  lastProject: bindings.LastProject,
   createTask: bindings.CreateTask,
   createPrecursor: bindings.CreatePrecursor,
   createDecision: bindings.CreateDecision,

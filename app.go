@@ -135,6 +135,16 @@ func (app *App) OpenProject(identifier string) (service.ProjectView, error) {
 	return current.OpenProject(identifier)
 }
 
+// LastProject returns the identifier of the project open most recently, which the
+// frontend reopens on launch.
+func (app *App) LastProject() (string, error) {
+	current, readyError := app.ready()
+	if readyError != nil {
+		return "", readyError
+	}
+	return current.LastProject()
+}
+
 // CurrentView returns the active project's view.
 func (app *App) CurrentView() (service.ProjectView, error) {
 	current, readyError := app.ready()

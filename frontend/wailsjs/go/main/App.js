@@ -62,6 +62,10 @@ export function ImportProject() {
   return window['go']['main']['App']['ImportProject']();
 }
 
+export function LastProject() {
+  return window['go']['main']['App']['LastProject']();
+}
+
 export function ListProjects() {
   return window['go']['main']['App']['ListProjects']();
 }

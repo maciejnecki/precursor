@@ -34,6 +34,8 @@ export function GetSettings():Promise<config.Settings>;
 
 export function ImportProject():Promise<model.Project>;
 
+export function LastProject():Promise<string>;
+
 export function ListProjects():Promise<Array<model.Project>>;
 
 export function OpenProject(arg1:string):Promise<service.ProjectView>;

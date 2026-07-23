@@ -164,7 +164,15 @@ func (service *Service) DeleteProject(identifier string) error {
 			return fmt.Errorf("close project before delete: %w", closeError)
 		}
 	}
-	return service.store.DeleteProject(identifier)
+	if deleteError := service.store.DeleteProject(identifier); deleteError != nil {
+		return deleteError
+	}
+	// A deleted project must not be reopened on the next launch.
+	last, lastError := service.settings.LastProject()
+	if lastError == nil && last == identifier {
+		_ = service.settings.SetLastProject("")
+	}
+	return nil
 }
 
 // OpenProject makes the given project active and returns its full view.
@@ -187,7 +195,18 @@ func (service *Service) OpenProject(identifier string) (ProjectView, error) {
 	// Undo snapshots describe the project that was just closed, so they are worthless
 	// against the one being opened.
 	service.history.clear()
+	// Remember the project so the next launch reopens it. A failed write only costs
+	// that convenience, so it does not fail the open.
+	_ = service.settings.SetLastProject(identifier)
 	return service.activeView()
+}
+
+// LastProject returns the identifier of the project that was open most recently, or
+// an empty string when there is none to reopen.
+func (service *Service) LastProject() (string, error) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	return service.settings.LastProject()
 }
 
 // CurrentView returns the view of the active project, refreshed from storage.

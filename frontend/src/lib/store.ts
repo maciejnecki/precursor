@@ -223,13 +223,14 @@ async function run<T>(action: () => Promise<T>): Promise<T | undefined> {
 }
 
 // loadInitial loads the project list, settings, and build version when the app
-// starts.
+// starts, then reopens the project that was open last.
 export async function loadInitial(): Promise<void> {
   await run(async () => {
     applySidebar(await api.sidebar())
     settings.set(await api.getSettings())
     appVersion.set(await api.version())
   })
+  await restoreLastProject()
 }
 
 // applySidebar stores a sidebar state returned by the backend.
@@ -317,19 +318,40 @@ export async function updateProject(identifier: string, name: string, descriptio
   })
 }
 
+// applyOpenedProject shows a freshly opened project, clearing the selection and any
+// popup left over from the project that was open before it.
+function applyOpenedProject(opened: ProjectView): void {
+  selectedNodeIds.set([])
+  modalNodeId.set(null)
+  editNodeId.set(null)
+  editModalOpen.set(false)
+  editorOpen.set(false)
+  editorMode.set('precursor')
+  closeSearch()
+  view.set(opened)
+}
+
 // openProject opens a project and resets the selection.
 export async function openProject(identifier: string): Promise<void> {
   await run(async () => {
-    const opened = await api.openProject(identifier)
-    selectedNodeIds.set([])
-    modalNodeId.set(null)
-    editNodeId.set(null)
-    editModalOpen.set(false)
-    editorOpen.set(false)
-    editorMode.set('precursor')
-    closeSearch()
-    view.set(opened)
+    applyOpenedProject(await api.openProject(identifier))
   })
+}
+
+// restoreLastProject reopens the project that was open when the app was last used.
+// Every failure — no project recorded, one that has since been removed, a database
+// that will not open — leaves the app with nothing open, which is the same state a
+// first-ever launch shows, so none of them is worth an error the user cannot act on.
+async function restoreLastProject(): Promise<void> {
+  try {
+    const identifier = await api.lastProject()
+    if (!identifier || !get(projects).some((project) => project.id === identifier)) {
+      return
+    }
+    applyOpenedProject(await api.openProject(identifier))
+  } catch {
+    return
+  }
 }
 
 // deleteProject removes a project and clears the view if it was open.

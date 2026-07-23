@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { Panel, useSvelteFlow } from '@xyflow/svelte'
   import { registerCanvasCommands } from './canvasCommands'
-  import { computeChainAreas, projectCardId } from './chains'
+  import { computeChainAreas, projectCardHeight, projectCardId, projectCardWidth } from './chains'
   import { view } from './store'
 
   // Navigation controls pinned to the bottom-right of the canvas: Home zooms in on
@@ -22,35 +22,89 @@
   const fitMaxZoom = 1
 
   // centerOnNode pans the view to the given node's centre. The zoom level is kept
-  // unless an explicit one is given. Node positions are top-left corners, so the
-  // measured card size (with a fallback for cards not yet measured) shifts the
-  // target to the middle.
-  function centerOnNode(identifier: string, zoom?: number): void {
+  // unless an explicit one is given. Node positions are top-left corners, so the card
+  // size shifts the target to the middle: the given size when the caller knows it,
+  // otherwise the measured one, falling back to a generic card for nodes the flow has
+  // not measured yet.
+  function centerOnNode(
+    identifier: string,
+    zoom?: number,
+    size?: { width: number; height: number },
+    durationMs: number = transitionMs
+  ): void {
     const target = getNode(identifier)
     if (!target) {
       return
     }
-    const centreX = target.position.x + (target.measured?.width ?? 200) / 2
-    const centreY = target.position.y + (target.measured?.height ?? 60) / 2
-    void setCenter(centreX, centreY, { zoom: zoom ?? getZoom(), duration: transitionMs })
+    const centreX = target.position.x + (size?.width ?? target.measured?.width ?? 200) / 2
+    const centreY = target.position.y + (size?.height ?? target.measured?.height ?? 60) / 2
+    void setCenter(centreX, centreY, { zoom: zoom ?? getZoom(), duration: durationMs })
   }
 
-  // home zooms in on the project card and centres it.
-  function home(): void {
-    centerOnNode(projectCardId, homeZoom)
+  // home zooms in on the project card and centres it. The card's size is laid out
+  // rather than measured, so passing it keeps the snap correct even on the frame the
+  // card first appears.
+  function home(durationMs: number = transitionMs): void {
+    centerOnNode(projectCardId, homeZoom, { width: projectCardWidth, height: projectCardHeight }, durationMs)
+  }
+
+  // chainPanels lists the chain background panels of the open project, which is what
+  // Fit frames.
+  function chainPanels(): { id: string }[] {
+    return computeChainAreas($view?.nodes ?? []).map((area) => ({ id: area.id }))
   }
 
   // fit frames the chain background panels, deliberately excluding the project card
   // so the graph itself fills the view. Framing the panels rather than the bare cards
   // keeps the chains' own padding, and the zoom cap stops a project with a single
   // short chain from filling the canvas.
-  function fit(): void {
-    const panels = computeChainAreas($view?.nodes ?? []).map((area) => ({ id: area.id }))
+  function fit(durationMs: number = transitionMs): void {
+    const panels = chainPanels()
     if (panels.length === 0) {
       return
     }
-    void fitView({ duration: transitionMs, padding: 0.2, maxZoom: fitMaxZoom, nodes: panels })
+    void fitView({ duration: durationMs, padding: 0.2, maxZoom: fitMaxZoom, nodes: panels })
   }
+
+  // How many frames the automatic framing waits for the flow to register the nodes of
+  // a newly opened project. They normally appear on the first or second.
+  const framingFrameBudget = 10
+
+  // snapToDefaultView frames a newly opened project the way Fit does, without
+  // animating, since there is no previous viewport worth showing the move from. It
+  // retries for a few frames because a project that has only just opened has not been
+  // turned into flow nodes yet, and falls back to the project card for a project that
+  // has no chains to frame.
+  function snapToDefaultView(framesLeft: number): void {
+    const panels = chainPanels()
+    const awaited = panels.length > 0 ? panels[0].id : projectCardId
+    if (getNode(awaited)) {
+      if (panels.length > 0) {
+        fit(0)
+      } else {
+        home(0)
+      }
+      return
+    }
+    if (framesLeft > 0) {
+      requestAnimationFrame(() => snapToDefaultView(framesLeft - 1))
+    }
+  }
+
+  // Every project opens framed on its chains, so the canvas starts somewhere known
+  // instead of keeping the viewport the previously open project left behind.
+  // Plain state rather than $state: it only guards the effect from re-framing the
+  // same project, and nothing renders from it.
+  let framedProjectId: string | null = null
+
+  $effect(() => {
+    const openProjectId = $view?.project.id ?? null
+    if (!openProjectId || openProjectId === framedProjectId) {
+      return
+    }
+    framedProjectId = openProjectId
+    snapToDefaultView(framingFrameBudget)
+  })
 
   // Register the viewport commands so the global shortcuts (h, shift+h) and the
   // search bar's match cycling can drive the canvas from outside the flow context.
@@ -61,8 +115,10 @@
 
 <Panel position="bottom-right">
   <div class="controls">
-    <button type="button" onclick={home}>Home</button>
-    <button type="button" onclick={fit}>Fit</button>
+    <!-- Wrapped rather than passed directly, so the click event is not taken for the
+         optional animation duration. -->
+    <button type="button" onclick={() => home()}>Home</button>
+    <button type="button" onclick={() => fit()}>Fit</button>
   </div>
 </Panel>
 
